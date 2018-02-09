@@ -76,6 +76,23 @@ struct origin_type
 	double Re;  // Radius in east
 };
 
+struct   __attribute__((packed)) geoid_height_message
+{
+  unsigned char sync1;  // 0xAF
+  unsigned char sync2;  // 0x20
+  unsigned char msg_type;  // 0x05
+  unsigned char sub_id;    // 0x16 (22)
+  unsigned short int payload_len;  // 12
+  
+  // --- payload data 
+  double gps_time;
+  float  geoid_height;  
+  // --- end payload    
+
+  unsigned char chksumA;
+  unsigned char chksumB;
+};
+
 //============================
 // MSG definnition from Baidu Apollo
 //============================
