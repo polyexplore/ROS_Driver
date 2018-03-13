@@ -6,7 +6,6 @@
 SER_PORT="/dev/ttyUSB0"
 SER_BAUD=230400
 SPEED_TOPIC="polyx_WheelSpeed"
-STATIC_HEADING="polyx_StaticHeading"
 OUTPUT_MSG=255
 
 if rosnode list 2>&1 | grep "ERROR: Unable to communicate with master"
@@ -18,9 +17,8 @@ else
      rosparam set polyx_port ${SER_PORT}
      rosparam set polyx_baud ${SER_BAUD}
      rosparam set polyx_speedreport ${SPEED_TOPIC}
-	 rosparam set polyx_staticheading ${STATIC_HEADING}
      rosparam set polyx_output ${OUTPUT_MSG}
-     rosrun polyx_nodea polyx_nodea_talker 
+     rosrun polyx_nodea polyx_nodea_listener
    else
     echo Polyx_nodea package is not found, forgot to add package to ROS? 
    fi

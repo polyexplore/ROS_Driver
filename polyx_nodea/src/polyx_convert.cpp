@@ -159,7 +159,7 @@ void icd_to_GeoPoseStamped(polyx_nodea::Icd &msg, geographic_msgs::GeoPoseStampe
    
    QuatNED2ENU(q1);
    
-   q2.x = msg.Quaternion[1];
+   q2.x = msg.Quaternion[1];  
    q2.y = msg.Quaternion[2];
    q2.z = msg.Quaternion[3];
    q2.w = msg.Quaternion[0];
@@ -213,6 +213,49 @@ void icd_to_AccelStamped( polyx_nodea::Icd &msg, geometry_msgs::AccelStamped &as
     
     return;
 }
+//-----------------------------------------------------------------------------
+void GeodeticToECEF(
+   const double& lat,
+   const double& lon,
+   const double& alt,
+   double        r[])
+{
+   double clat = cos(lat);
+   double clon = cos(lon);
+   double slat = sin(lat);
+   double slon = sin(lon);
+   double Rn = WGS84_A / sqrt(1.0 - WGS84_E2 * slat * slat);
+   double R = Rn + alt;
+
+   r[0] = R * clat * clon;
+   r[1] = R * clat * slon;
+   r[2] = (Rn * (1.0- WGS84_E2) + alt) * slat;
+}
+
+//-----------------------------------------------------------------------------
+void DCM_ECEFToNED(const double& lat, const double& lon, double Cen[3][3])
+{
+   double clat = cos(lat);
+   double slat = sin(lat);
+   double clon = cos(lon);
+   double slon = sin(lon);
+
+   Cen[0][0] = -slat * clon; Cen[0][1] = -slat * slon; Cen[0][2] = clat;
+   Cen[1][0] = -slon;        Cen[1][1] = clon;        Cen[1][2] = 0.0;
+   Cen[2][0] = -clat * clon; Cen[2][1] = -clat * slon; Cen[2][2] = -slat;
+}
+
+//-----------------------------------------------------------------------------
+// Set origin of pose specifically for customers
+void SetCustomOrigin(
+   double               latitude,   // radian
+   double               longitude,  // radian
+   double               altitude,   // meters
+   struct origin_type&  org)
+{
+   GeodeticToECEF(latitude, longitude, altitude, org.r);
+   DCM_ECEFToNED(latitude, longitude, org.Cen);
+}
 
 //-----------------------------------------------------------------------------
 // Set origin for Pose message
@@ -220,20 +263,7 @@ void SetOrigin(
    const polyx_nodea::Icd&     msg,
    struct origin_type&         org)
 {
-	double slat2 = sin(msg.Latitude);
-	double tmp1, tmp2;
-	
-	slat2 *= slat2;
-	tmp1 = 1.0 - WGS84_E2 * slat2;
-	tmp2 = sqrt(tmp1);
-	
-	org.lat = msg.Latitude;
-	org.lon = msg.Longitude;
-	org.alt = msg.Altitude;
-	
-	org.Rn = msg.Altitude + WGS84_A*(1.0-WGS84_E2)/(tmp1 * tmp2);
-	org.Re = (msg.Altitude + WGS84_A/tmp2) * cos(msg.Latitude);
-	   
+   SetCustomOrigin(msg.Latitude, msg.Longitude, msg.Altitude, org);   
 }
 
 //-----------------------------------------------------------------------------
@@ -243,13 +273,26 @@ void icd_to_PoseStamped(
    const struct origin_type&   org,
    geometry_msgs::PoseStamped& ps)
 {
+   double dr_e[3], dr_n[3];
    geometry_msgs::Quaternion q1;
    geometry_msgs::Quaternion q2;
    ps.header.stamp = msg.header.stamp;
 
-   ps.pose.position.x = (msg.Latitude - org.lat) * org.Rn; // North
-   ps.pose.position.y = (msg.Longitude - org.lon) * org.Re; // East 
-   ps.pose.position.z = org.alt - msg.Altitude;            // Down
+   GeodeticToECEF(msg.Latitude, msg.Longitude, msg.Altitude, dr_e);
+
+   for (int i = 0; i < 3; ++i)
+      dr_e[i] -= org.r[i];
+
+   for (int i = 0; i < 3; ++i)
+   {
+      dr_n[i] = 0;
+      for (int j = 0; j < 3; ++j)
+         dr_n[i] += org.Cen[i][j] * dr_e[j];
+   }
+
+   ps.pose.position.x = dr_n[0]; // North
+   ps.pose.position.y = dr_n[1]; // East 
+   ps.pose.position.z = dr_n[2]; // Down
 
    // Get quaternion from the body to NED frame
    
@@ -258,8 +301,38 @@ void icd_to_PoseStamped(
    ps.pose.orientation.z = msg.Quaternion[3];
    ps.pose.orientation.w = msg.Quaternion[0];
 
-
    return;
 }
 
 
+// Convert quaterion to Euler angles
+bool EulerAttitude(polyx_nodea::Icd &msg, polyx_nodea::EulerAttitude &qtemsg)
+{
+
+   float q0 = msg.Quaternion[0] * msg.Quaternion[0];
+   float q1 = msg.Quaternion[1] * msg.Quaternion[1];
+   float q2 = msg.Quaternion[2] * msg.Quaternion[2];
+   float q3 = msg.Quaternion[3] * msg.Quaternion[3];
+
+
+   float C31 = 2.0f * (msg.Quaternion[1] * msg.Quaternion[3] - msg.Quaternion[0] * msg.Quaternion[2]);
+   float C32 = 2.0f * (msg.Quaternion[2] * msg.Quaternion[3] + msg.Quaternion[0] * msg.Quaternion[1]);
+   float C33 = q0 - q1 - q2 + q3;
+
+   qtemsg.pitch = atan(-C31 / sqrt(C32 * C32 + C33 * C33));
+
+   if (fabsf(C31) < 0.999f)
+   {
+      float C11 = q0 + q1 - q2 - q3;
+      float C21 = 2.0f * (msg.Quaternion[1] * msg.Quaternion[2] + msg.Quaternion[0] * msg.Quaternion[3]);
+
+      qtemsg.roll = atan2(C32, C33);
+      qtemsg.heading = atan2(C21, C11);
+
+      return true;
+   }
+   else
+   {
+      return false;
+   }
+}

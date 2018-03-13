@@ -51,7 +51,13 @@ find_package(catkin REQUIRED COMPONENTS
  add_message_files(
    FILES
    Icd.msg
+   Geoid.msg
+   EulerAttitude.msg
    WheelSpeedReport.msg
+   Kalman.msg
+   StaticHeadingEvent.msg
+   RawIMU.msg
+   CorrectedIMU.msg
  )
 
 ## Generate services in the 'srv' folder
@@ -138,6 +144,7 @@ include_directories(
 add_executable(${PROJECT_NAME}_talker src/polyx_nodea_talker.cpp)
 add_executable(${PROJECT_NAME}_listener src/polyx_nodea_listener.cpp)
 add_executable(${PROJECT_NAME}_speed src/polyx_nodea_speed.cpp)
+add_executable(${PROJECT_NAME}_heading src/polyx_nodea_heading.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -150,6 +157,7 @@ add_executable(${PROJECT_NAME}_speed src/polyx_nodea_speed.cpp)
 add_dependencies(${PROJECT_NAME}_talker ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(${PROJECT_NAME}_listener ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(${PROJECT_NAME}_speed ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(${PROJECT_NAME}_heading ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(${PROJECT_NAME}_talker
@@ -161,7 +169,9 @@ target_link_libraries(${PROJECT_NAME}_listener
 target_link_libraries(${PROJECT_NAME}_speed
    ${catkin_LIBRARIES}
   )
-
+target_link_libraries(${PROJECT_NAME}_heading
+   ${catkin_LIBRARIES}
+  )
 #############
 ## Install ##
 #############
