@@ -29,11 +29,13 @@
 #include "ros/ros.h"
 #include "std_msgs/String.h"
 
-#include "polyx_nodea/Icd.h"
-#include "polyx_nodea/Geoid.h"
-#include "polyx_nodea/EulerAttitude.h"
 #include "polyx_nodea/Kalman.h"
 #include "polyx_nodea/RawIMU.h"
+#include "polyx_nodea/SolutionStatus.h"
+#include "polyx_nodea/Icd.h"
+#include "polyx_nodea/EulerAttitude.h"
+#include "polyx_nodea/TimeSync.h"
+#include "polyx_nodea/Geoid.h"
 #include "polyx_nodea/CorrectedIMU.h"
 
 #include <geometry_msgs/PoseStamped.h>
@@ -64,29 +66,24 @@ FILE *flog =NULL;
  * This tutorial demonstrates simple receipt of messages over the ROS system.
  */
  
-
-
-void dumpICDMessage(const polyx_nodea::Icd::ConstPtr& msg)
+void dumpKalmanMessage(const polyx_nodea::Kalman::ConstPtr& kalmsg)
 {
- //  char sbuf[128];
-//   sprintf(sbuf, "%lf\n", msg->GpsTimeWeek);
- //  write( fd_log, sbuf, strlen(sbuf) );
-  if (flog) fprintf(flog, "%lf\n", msg->GpsTimeWeek);
+  if (flog) fprintf(flog, "%f\n", kalmsg->GPSTime);
 
-  ROS_INFO("msg->GpsTimeOfWeek=%.3lf", msg->GpsTimeWeek);
-  ROS_INFO("msg->Latitude=%.3lf", msg->Latitude);
-  ROS_INFO("msg->Longitude=%.3lf", msg->Longitude);
-  ROS_INFO("msg->Altitude=%e", msg->Altitude);
-  ROS_INFO("msg->VelocityNED=[%e,%e,%e]", msg->VelocityNED[0], msg->VelocityNED[1], msg->VelocityNED[2]);
-  ROS_INFO("msg->Attitude=[%e,%e,%e,%e]", msg->Quaternion[0],msg->Quaternion[1],msg->Quaternion[2],msg->Quaternion[3]);
-  ROS_INFO("msg->Acceleration=[%e,%e,%e]", msg->Acceleration[0], msg->Acceleration[1], msg->Acceleration[2]);
-  ROS_INFO("msg->RotationRate=[%e,%e,%e]", msg->RotationRate[0], msg->RotationRate[1], msg->RotationRate[2]);
-  ROS_INFO("msg->PositionRMS=[%e,%e,%e]", msg->PositionRMS[0], msg->PositionRMS[1], msg->PositionRMS[2]);
-  ROS_INFO("msg->VelocityRMS=[%e,%e,%e]", msg->VelocityRMS[0], msg->VelocityRMS[1], msg->VelocityRMS[2]);
-  ROS_INFO("msg->AttitudeRMS=[%e,%e,%e]", msg->AttitudeRMS[0], msg->AttitudeRMS[1], msg->AttitudeRMS[2]);
-  ROS_INFO("msg->GpsWeekNumber=%d", msg->GpsWeekNumber);
-  ROS_INFO("msg->Alignment=%d\n", msg->Alignment);
-
+  ROS_INFO("SystemTime=%f", kalmsg->SystemTime);
+  ROS_INFO("GPSTime=%f", kalmsg->GPSTime);
+  ROS_INFO("Latitude=%.9lf", kalmsg->Latitude*RAD_TO_DEG);
+  ROS_INFO("Longitude=%.9lf", kalmsg->Longitude*RAD_TO_DEG);
+  ROS_INFO("EllipsoidalHeight=%f", kalmsg->EllipsoidalHeight);
+  ROS_INFO("VelocityNorth=%f", kalmsg->VelocityNorth);
+  ROS_INFO("VelocityEast=%f", kalmsg->VelocityEast);
+  ROS_INFO("VelocityDown=%f", kalmsg->VelocityDown);
+  ROS_INFO("Roll=%f", kalmsg->Roll);
+  ROS_INFO("Pitch=%f", kalmsg->Pitch);
+  ROS_INFO("Heading=%f", kalmsg->Heading);
+  ROS_INFO("PositionMode=%d", kalmsg->PositionMode);
+  ROS_INFO("VelocityMode=%d", kalmsg->VelocityMode);
+  ROS_INFO("AttitudeStatus=%d\n", kalmsg->AttitudeStatus);
 }
 
 void dumpRawIMUMessage(const polyx_nodea::RawIMU::ConstPtr& imsg)
@@ -94,110 +91,107 @@ void dumpRawIMUMessage(const polyx_nodea::RawIMU::ConstPtr& imsg)
 
   if (flog) fprintf(flog, "%lf\n", imsg->SystemTime);
 
-  ROS_INFO("msg->SystemTime=%f", imsg->SystemTime);
-
-  ROS_INFO("msg->Acceleration=[%f,%f,%f]", imsg->Acceleration[0], imsg->Acceleration[1], imsg->Acceleration[2]);
-  ROS_INFO("msg->RotationRate=[%f,%f,%f]\n", imsg->RotationRate[0], imsg->RotationRate[1], imsg->RotationRate[2]);
+  ROS_INFO("SystemTime=%f", imsg->SystemTime);
+  ROS_INFO("Acceleration=[%f,%f,%f]", imsg->Acceleration[0], imsg->Acceleration[1], imsg->Acceleration[2]);
+  ROS_INFO("RotationRate=[%f,%f,%f]\n", imsg->RotationRate[0], imsg->RotationRate[1], imsg->RotationRate[2]);
 
 }
 
-void dumpCorrectedIMUMessage(const polyx_nodea::CorrectedIMU::ConstPtr& imsg)
+void dumpSolutionStatus(const polyx_nodea::SolutionStatus::ConstPtr& smsg)
 {
 
-  if (flog) fprintf(flog, "%lf\n", imsg->GpsTimeWeek);
+  if (flog) fprintf(flog, "%lf\n", smsg->SystemTime);
 
-  ROS_INFO("msg->GpsTimeWeek=%f", imsg->GpsTimeWeek);
+  ROS_INFO("SystemTime=%f", smsg->SystemTime);
+  ROS_INFO("GpsWeekNumber=%d", smsg->GpsWeekNumber);
+  ROS_INFO("NumberOfSVs=%d", smsg->NumberOfSVs);
+  ROS_INFO("ProcessingMode=%d", smsg->ProcessingMode);
+  ROS_INFO("GpsTimeWeek=%f", smsg->GpsTimeWeek);
+  ROS_INFO("PositionRMS=[%f,%f,%f]", smsg->PositionRMS[0], smsg->PositionRMS[1], smsg->PositionRMS[2]);
+  ROS_INFO("VelocityRMS=[%f,%f,%f]", smsg->VelocityRMS[0], smsg->VelocityRMS[1], smsg->VelocityRMS[2]);
+  ROS_INFO("AttitudeRMS=[%f,%f,%f]\n", smsg->AttitudeRMS[0], smsg->AttitudeRMS[1], smsg->AttitudeRMS[2]);
+}
 
-  ROS_INFO("msg->Acceleration=[%f,%f,%f]", imsg->Acceleration[0], imsg->Acceleration[1], imsg->Acceleration[2]);
-  ROS_INFO("msg->RotationRate=[%f,%f,%f]", imsg->RotationRate[0], imsg->RotationRate[1], imsg->RotationRate[2]);
-  
-  ROS_INFO("msg->GpsWeekNumber=%d\n", imsg->GpsWeekNumber);
+void dumpICDMessage(const polyx_nodea::Icd::ConstPtr& msg)
+{
+  if (flog) fprintf(flog, "%lf\n", msg->GpsTimeWeek);
+
+  ROS_INFO("GpsTimeOfWeek=%.3lf", msg->GpsTimeWeek);
+  ROS_INFO("Latitude=%.9lf", msg->Latitude * RAD_TO_DEG);
+  ROS_INFO("Longitude=%.9lf", msg->Longitude * RAD_TO_DEG);
+  ROS_INFO("Altitude=%.3lf", msg->Altitude);
+  ROS_INFO("VelocityNED=[%.3lf,%.3lf,%.3lf]", msg->VelocityNED[0], msg->VelocityNED[1], msg->VelocityNED[2]);
+  ROS_INFO("Attitude=[%e,%e,%e,%e]", msg->Quaternion[0],msg->Quaternion[1],msg->Quaternion[2],msg->Quaternion[3]);
+  ROS_INFO("Acceleration=[%e,%e,%e]", msg->Acceleration[0], msg->Acceleration[1], msg->Acceleration[2]);
+  ROS_INFO("RotationRate=[%e,%e,%e]", msg->RotationRate[0], msg->RotationRate[1], msg->RotationRate[2]);
+  ROS_INFO("PositionRMS=[%.3lf,%.3lf,%.3lf]", msg->PositionRMS[0], msg->PositionRMS[1], msg->PositionRMS[2]);
+  ROS_INFO("VelocityRMS=[%.3lf,%.3lf,%.3lf]", msg->VelocityRMS[0], msg->VelocityRMS[1], msg->VelocityRMS[2]);
+  ROS_INFO("AttitudeRMS=[%.3lf,%.3lf,%.3lf]", msg->AttitudeRMS[0], msg->AttitudeRMS[1], msg->AttitudeRMS[2]);
+  ROS_INFO("GpsWeekNumber=%d", msg->GpsWeekNumber);
+  ROS_INFO("Alignment=%d\n", msg->Alignment);
 
 }
- 
+
+void dumpTimeSyncMessage(const polyx_nodea::TimeSync::ConstPtr& tsmsg)
+{
+  if (flog) fprintf(flog, "%f\n", tsmsg->SystemComputerTime);
+
+  ROS_INFO("System Computer Time=%f", tsmsg->SystemComputerTime);
+  ROS_INFO("Bias with respect To GPS Time=%f\n", tsmsg->BiasToGPSTime);
+
+}
+
 void dumpGeoidMessage(const polyx_nodea::Geoid::ConstPtr& gmsg)
 {
   if (flog) fprintf(flog, "%f\n", gmsg->GPSTime);
 
-  ROS_INFO("gmsg->GPSTime=%f", gmsg->GPSTime);
-  ROS_INFO("gmsg->GeoidHeight=%f\n", gmsg->GeoidHeight);
+  ROS_INFO("GPSTime=%f", gmsg->GPSTime);
+  ROS_INFO("GeoidHeight=%f\n", gmsg->GeoidHeight);
 
 }
 
-void dumpKalmanMessage(const polyx_nodea::Kalman::ConstPtr& kalmsg)
+void dumpCorrectedIMUMessage(const polyx_nodea::CorrectedIMU::ConstPtr& cimsg)
 {
-  if (flog) fprintf(flog, "%f\n", kalmsg->GPSTime);
 
-  ROS_INFO("kalmsg->SystemTime=%f", kalmsg->SystemTime);
-  ROS_INFO("kalmsg->GPSTime=%f", kalmsg->GPSTime);
-  ROS_INFO("kalmsg->Latitude=%f", kalmsg->Latitude);
-  ROS_INFO("kalmsg->Longitude=%f", kalmsg->Longitude);
-  ROS_INFO("kalmsg->EllipsoidalHeight=%f", kalmsg->EllipsoidalHeight);
-  ROS_INFO("kalmsg->VelocityNorth=%f", kalmsg->VelocityNorth);
-  ROS_INFO("kalmsg->VelocityEast=%f", kalmsg->VelocityEast);
-  ROS_INFO("kalmsg->VelocityDown=%f", kalmsg->VelocityDown);
-  ROS_INFO("kalmsg->Roll=%f", kalmsg->Roll);
-  ROS_INFO("kalmsg->Pitch=%f", kalmsg->Pitch);
-  ROS_INFO("kalmsg->Heading=%f", kalmsg->Heading);
-  ROS_INFO("kalmsg->PositionMode=%d", kalmsg->PositionMode);
-  ROS_INFO("kalmsg->VelocityMode=%d", kalmsg->VelocityMode);
-  ROS_INFO("kalmsg->AttitudeStatus=%d\n", kalmsg->AttitudeStatus);
+  if (flog) fprintf(flog, "%lf\n", cimsg->GpsTimeWeek);
+
+  ROS_INFO("GpsTimeWeek=%f", cimsg->GpsTimeWeek);
+  ROS_INFO("Acceleration=[%f,%f,%f]", cimsg->Acceleration[0], cimsg->Acceleration[1], cimsg->Acceleration[2]);
+  ROS_INFO("RotationRate=[%f,%f,%f]", cimsg->RotationRate[0], cimsg->RotationRate[1], cimsg->RotationRate[2]);
+  ROS_INFO("GpsWeekNumber=%d\n", cimsg->GpsWeekNumber);
+
 }
 
 
-void polyxCorrectedIMUCallback(const polyx_nodea::CorrectedIMU::ConstPtr& imsg)
+// %Tag(CALLBACK)%
+void polyxKalmanCallback(const polyx_nodea::Kalman::ConstPtr& kalmsg) 
 {
-  ROS_INFO(">>> Received a Corrected IMU Data message:");
+  ROS_INFO(">>> Received a Kalman Filter Navigation message:");
 
-  dumpCorrectedIMUMessage(imsg);
+  dumpKalmanMessage(kalmsg);
 }
-
 
 void polyxRawIMUCallback(const polyx_nodea::RawIMU::ConstPtr& imsg)
 {
   ROS_INFO(">>> Received a Scaled Raw IMU Data message:");
 
-  //ROS_INFO("message[%p], week=%d", gmsg, gmsg->GPSTime);
   dumpRawIMUMessage(imsg);
 
 }
 
-void polyxGeoidCallback(const polyx_nodea::Geoid::ConstPtr& gmsg)
+void polyxSolutionStatusCallback(const polyx_nodea::SolutionStatus::ConstPtr& smsg)
 {
-  ROS_INFO(">>> Received a Geoid Height message:");
+  ROS_INFO(">>> Received a Solution Status message:");
 
-  //ROS_INFO("message[%p], week=%d", gmsg, gmsg->GPSTime);
-  dumpGeoidMessage(gmsg);
-
+  dumpSolutionStatus(smsg);
 }
 
-void polyxKalmanCallback(const polyx_nodea::Kalman::ConstPtr& kalmsg) 
-{
-  ROS_INFO(">>> Received a Kalman Filter Navigation message:");
-
-  //ROS_INFO("message[%p], week=%d", gmsg, gmsg->GPSTime);
-  dumpKalmanMessage(kalmsg);
-}
-
-
-// %Tag(CALLBACK)%
 void polyxICDCallback(const polyx_nodea::Icd::ConstPtr& msg)
 {
   ROS_INFO(">>> Received an ICD message:");
 
   ROS_INFO("message[%p], week=%d\n", msg, msg->GpsWeekNumber);
-	dumpICDMessage(msg);
-
-}
-
-//QuatToEuler listener
-void EulerAttitudeCallback(const polyx_nodea::EulerAttitude::ConstPtr& qtemsg) 
-{
-  ROS_INFO(">>> Received an EulerAttitude message:");
-  ROS_INFO("qtemsg->GpsTimeWeek=%f", qtemsg->GpsTimeWeek );
-  ROS_INFO("qtemsg->roll=%f", qtemsg->roll * RAD_TO_DEG);
-  ROS_INFO("qtemsg->pitch=%f", qtemsg->pitch * RAD_TO_DEG);
-  ROS_INFO("qtemsg->heading=%f\n", qtemsg->heading * RAD_TO_DEG);
+  dumpICDMessage(msg);
 }
 
 void PoseStampedCallback(const geometry_msgs::PoseStamped::ConstPtr& msg)
@@ -242,6 +236,36 @@ void ImuCallback(const sensor_msgs::Imu::ConstPtr& msg)
   ROS_INFO("message[%p], time=%09u:%09u\n", msg, msg->header.stamp.sec, msg->header.stamp.nsec);
 }
 
+void EulerAttitudeCallback(const polyx_nodea::EulerAttitude::ConstPtr& qtemsg) 
+{
+  ROS_INFO(">>> Received an EulerAttitude message:");
+  ROS_INFO("GpsTimeWeek=%f", qtemsg->GpsTimeWeek );
+  ROS_INFO("roll=%f", qtemsg->roll * RAD_TO_DEG);
+  ROS_INFO("pitch=%f", qtemsg->pitch * RAD_TO_DEG);
+  ROS_INFO("heading=%f\n", qtemsg->heading * RAD_TO_DEG);
+}
+
+void polyxTimeSyncCallback(const polyx_nodea::TimeSync::ConstPtr& tsmsg)
+{
+  ROS_INFO(">>> Received a Time Sync message:");
+
+  dumpTimeSyncMessage(tsmsg);
+}
+
+void polyxGeoidCallback(const polyx_nodea::Geoid::ConstPtr& gmsg)
+{
+  ROS_INFO(">>> Received a Geoid Height message:");
+
+  dumpGeoidMessage(gmsg);
+
+}
+
+void polyxCorrectedIMUCallback(const polyx_nodea::CorrectedIMU::ConstPtr& cimsg)
+{
+  ROS_INFO(">>> Received a Corrected IMU Data message:");
+
+  dumpCorrectedIMUMessage(cimsg);
+}
 
 // %EndTag(CALLBACK)%
 
@@ -285,24 +309,27 @@ int main(int argc, char **argv)
    * away the oldest ones.
    */
 // %Tag(SUBSCRIBER)%
-  ros::Subscriber sub = n.subscribe("polyx_ICD", 50, polyxICDCallback);
+  ros::Subscriber Kalman_sub = n.subscribe("polyx_Kalman", 50, polyxKalmanCallback);
 
+  ros::Subscriber RawIMU_sub = n.subscribe("polyx_rawIMU", 50, polyxRawIMUCallback);
+
+  ros::Subscriber SolutionStatus_sub = n.subscribe("polyx_solutionStatus", 50, polyxSolutionStatusCallback);
+  
+  ros::Subscriber icd_sub = n.subscribe("polyx_ICD", 50, polyxICDCallback);
   ros::Subscriber pose_sub = n.subscribe("current_pose", 50, PoseStampedCallback);
   ros::Subscriber twist_sub = n.subscribe("current_velocity", 50, TwistStampedCallback);
   ros::Subscriber accel_sub = n.subscribe("current_acceleration", 50, AccelStampedCallback);
-
   ros::Subscriber geopose_sub = n.subscribe("current_geopose", 50, GeoPoseStampedCallback);
-
   ros::Subscriber navsatfix_sub = n.subscribe("current_navsatfix", 50, NavSatFixCallback);
   ros::Subscriber imu_sub = n.subscribe("current_imu", 50, ImuCallback);
-  
-  ros::Subscriber geoid_sub = n.subscribe("polyx_Geoid", 50, polyxGeoidCallback);
   ros::Subscriber EulerAttitude_sub = n.subscribe("polyx_EulerAttitude", 50, EulerAttitudeCallback);
-
-  ros::Subscriber Kalman_sub = n.subscribe("polyx_Kalman", 50, polyxKalmanCallback);
-  ros::Subscriber RawIMU_sub = n.subscribe("polyx_rawIMU", 50, polyxRawIMUCallback);
-  ros::Subscriber CorrectedIMU_sub = n.subscribe("polyx_correctedIMU", 50, polyxCorrectedIMUCallback);
   
+  ros::Subscriber timeSync_sub = n.subscribe("polyx_timeSync", 50, polyxTimeSyncCallback);
+
+  ros::Subscriber geoid_sub = n.subscribe("polyx_Geoid", 50, polyxGeoidCallback);
+
+  ros::Subscriber CorrectedIMU_sub = n.subscribe("polyx_correctedIMU", 50, polyxCorrectedIMUCallback);
+
   // %EndTag(SUBSCRIBER)%
 
   /**

@@ -58,6 +58,9 @@ find_package(catkin REQUIRED COMPONENTS
    StaticHeadingEvent.msg
    RawIMU.msg
    CorrectedIMU.msg
+   SolutionStatus.msg
+   StaticGeoPoseEvent.msg
+   TimeSync.msg
  )
 
 ## Generate services in the 'srv' folder
@@ -145,6 +148,7 @@ add_executable(${PROJECT_NAME}_talker src/polyx_nodea_talker.cpp)
 add_executable(${PROJECT_NAME}_listener src/polyx_nodea_listener.cpp)
 add_executable(${PROJECT_NAME}_speed src/polyx_nodea_speed.cpp)
 add_executable(${PROJECT_NAME}_heading src/polyx_nodea_heading.cpp)
+add_executable(${PROJECT_NAME}_geopose src/polyx_nodea_geopose.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -158,6 +162,7 @@ add_dependencies(${PROJECT_NAME}_talker ${${PROJECT_NAME}_EXPORTED_TARGETS} ${ca
 add_dependencies(${PROJECT_NAME}_listener ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(${PROJECT_NAME}_speed ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(${PROJECT_NAME}_heading ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(${PROJECT_NAME}_geopose ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(${PROJECT_NAME}_talker
@@ -170,6 +175,9 @@ target_link_libraries(${PROJECT_NAME}_speed
    ${catkin_LIBRARIES}
   )
 target_link_libraries(${PROJECT_NAME}_heading
+   ${catkin_LIBRARIES}
+  )
+target_link_libraries(${PROJECT_NAME}_geopose
    ${catkin_LIBRARIES}
   )
 #############

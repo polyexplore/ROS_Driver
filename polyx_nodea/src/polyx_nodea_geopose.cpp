@@ -29,7 +29,7 @@
  // %Tag(MSG_HEADER)%
 #include "std_msgs/String.h"
 
-#include "polyx_nodea/StaticHeadingEvent.h"
+#include "polyx_nodea/StaticGeoPoseEvent.h"
 
 
 /**
@@ -80,37 +80,65 @@ int main(int argc, char **argv)
     * buffer up before throwing some away.
     */
     // %Tag(PUBLISHER)%
-   ros::Publisher staticHeading_pub = n.advertise<polyx_nodea::StaticHeadingEvent>("polyx_StaticHeading", 1000);
+   ros::Publisher staticGeoPose_pub = n.advertise<polyx_nodea::StaticGeoPoseEvent>("polyx_StaticGeoPose", 1000);
    // %EndTag(PUBLISHER)%
 
    // %Tag(LOOP_RATE)%
    ros::Rate loop_rate(300);
    // %EndTag(LOOP_RATE)%
 
-   polyx_nodea::StaticHeadingEvent msg;
+   polyx_nodea::StaticGeoPoseEvent msg;
 
    double duration = 5.0; // seconds
 
    // Default message for testing
 
-   msg.Heading = -11600; // -116 degrees
-   msg.ZUPTRMS = 10;     // 1 cm/s
-   msg.HeadingRMS = 100; // 10 degrees
+   msg.Latitude = 37.405109067;		// 37.405109067 degrees
+   msg.Longitude = -121.918100758;  // -121.918100758 degrees
+   msg.EllipsoidalHeight = -10.136; // -10.136 m
+   msg.Roll = 0;					// 0 degree
+   msg.Pitch = 0; 					// 0 degree
+   msg.Heading = 3000; 				// 30.00 degrees
+   msg.PositionRMS = 200;			// 2.00 m
+   msg.ZUPTRMS = 10;				// 0.010 m	
+   msg.HeadingRMS = 100;    		// 10 degrees
+   msg.Flags = 0;  					// 0
+
 
    // Parse message contents from command line arguments
-   if (argc == 5)
+   if (argc == 12)
    {
-      // convet deg to 0.01 deg
-      msg.Heading = static_cast<short int>(atof(argv[1]) * 100);
+      
+      msg.Latitude = static_cast<double>(atof(argv[1]));
+
+      msg.Longitude = static_cast<double>(atof(argv[2]));
+
+      msg.EllipsoidalHeight = static_cast<float>(atof(argv[3]));
+
+      // convert deg to 0.01 deg
+      msg.Roll = static_cast<short int>(atof(argv[4]) * 100);
+
+      // convert deg to 0.01 deg
+      msg.Pitch = static_cast<short int>(atof(argv[5]) * 100);
+
+      // convert deg to 0.01 deg
+      msg.Heading = static_cast<short int>(atof(argv[6]) * 100);
+
+      // convert m to cm
+      msg.PositionRMS = static_cast<unsigned short int>(atof(argv[7]) * 100);
 
       // convert m/s to mm/s
-      msg.ZUPTRMS = static_cast<unsigned short int>(atof(argv[2]) * 1000);
+      msg.ZUPTRMS = static_cast<unsigned short int>(atof(argv[8]) * 1000);
 
       // convert deg to 0.1 deg
-      msg.HeadingRMS = static_cast<unsigned char>(atof(argv[3]) * 10);
+      msg.HeadingRMS = static_cast<unsigned char>(atof(argv[9]) * 10);
 
-      duration = atof(argv[4]);
+      msg.Flags = static_cast<unsigned char>(atof(argv[10]));
+
+      duration = atof(argv[11]);
    }
+
+   
 
    double start_time = ros::Time::now().toSec();
 
@@ -125,17 +153,24 @@ int main(int argc, char **argv)
       if (msg.header.stamp.toSec() - start_time > duration)
          break;
 
-      printf("Sent a Static Heading Event Message, count = %d\n", ++count);
-      ROS_INFO("Heading = %d deg", msg.Heading/100);
-      ROS_INFO("ZUPT RMS = %d mm/s", msg.ZUPTRMS);
-      ROS_INFO("Heading RMS = %d deg\n", msg.HeadingRMS/10);
+      printf("Sent a StaticGeoPose message, count = %d\n", ++count);
+      ROS_INFO("Latitude: %.9lf deg", msg.Latitude);
+      ROS_INFO("Longitude: %.9lf deg",  msg.Longitude);
+      ROS_INFO("EllipsoidalHeight: %.3lf m",  msg.EllipsoidalHeight);
+      ROS_INFO("Roll: %d deg",  msg.Roll/100);
+      ROS_INFO("Pitch: %d deg",  msg.Pitch/100);
+      ROS_INFO("Heading: %d deg",  msg.Heading/100);
+      ROS_INFO("PositionRMS: %d cm",  msg.PositionRMS);
+      ROS_INFO("ZUPTRMS: %d mm/s",  msg.ZUPTRMS);
+      ROS_INFO("HeadingRMS: %d deg",  msg.HeadingRMS/10);
+      ROS_INFO("Roll & Pitch Valid, disable GNSS: %d\n",  msg.Flags);
 
       // %EndTag(ROSCONSOLE)%
       // %Tag(PUBLISH)%
-      staticHeading_pub.publish(msg);
+      staticGeoPose_pub.publish(msg);
       // %EndTag(PUBLISH)%
 
-   loop_ros:
+   	  loop_ros:
 
       // %Tag(SPINONCE)%
       ros::spinOnce();
