@@ -72,6 +72,7 @@
 
 #include <time.h> 
 
+#include "polyx_convert.h"
 
 #define MON_PORT "/dev/ttyUSB1"
 #define ICD_SYNC1 0xAF
@@ -87,8 +88,6 @@
 // global serial port file descriptor
 int fd_mon = -1;
 static const int MaxMsgLen = 2048;
-
-#include "polyx_convert.cpp"
 
 uint8_t checksum(uint8_t* Buffer, uint16_t len, uint8_t& cka, uint8_t& ckb)
 {
@@ -113,30 +112,30 @@ uint8_t checksum(uint8_t* Buffer, uint16_t len, uint8_t& cka, uint8_t& ckb)
 
 int write_port(int fd, void *buf, int len)
 {
-  struct timeval tout;
-// default uart read timeout
-        tout.tv_sec = 0;
-        tout.tv_usec = 500*1000;
-        
-    fd_set outputs;
-    int num, ret;
-    
-    num = 0 ;   
-    
-     FD_ZERO(&outputs);
-    FD_SET(fd, &outputs);
+   struct timeval tout;
+   // default uart read timeout
+   tout.tv_sec = 0;
+   tout.tv_usec = 500 * 1000;
 
-    ret = select(fd+1, (fd_set *)NULL, &outputs, (fd_set *)NULL, &tout);
-    if (ret < 0) {
-        perror("select error!!");
-        return ret;
-    }
-    if (ret > 0) {
-        if (FD_ISSET(fd, &outputs)) {
-            num = write(fd, buf, len);    
-        }
-    }
-    return num;        		
+   fd_set outputs;
+   int num, ret;
+
+   num = 0;
+
+   FD_ZERO(&outputs);
+   FD_SET(fd, &outputs);
+
+   ret = select(fd + 1, (fd_set *)NULL, &outputs, (fd_set *)NULL, &tout);
+   if (ret < 0) {
+      perror("select error!!");
+      return ret;
+   }
+   if (ret > 0) {
+      if (FD_ISSET(fd, &outputs)) {
+         num = write(fd, buf, len);
+      }
+   }
+   return num;
 }
 
 
@@ -224,7 +223,7 @@ int open_mon(const char *port, int baud)
    tcsetattr(fd, TCSANOW, &options);                                   // Activate the settings
 
    return fd;  // successful
-}  
+}
 
 #define DEG_TO_RAD (0.017453292519943295)
 
@@ -242,10 +241,12 @@ uint8_t checkMessageType(uint8_t *buf)
 
    if ((c1 == buf[len + 6]) && (c2 == buf[len + 7]))
    {
-	  	messageType = buf[2];
-   } else {
-   		printf("invalid message.\n");
-   		messageType = 0;
+      messageType = buf[2];
+   }
+   else 
+   {
+      printf("invalid message.\n");
+      messageType = 0;
    }
    return messageType;
 }
@@ -253,221 +254,215 @@ uint8_t checkMessageType(uint8_t *buf)
 
 void parse_Kalman_message(uint8_t *buf, polyx_nodea::Kalman &kalmsg)
 {
-	struct kalmanmessage *km = (struct kalmanmessage*)buf;
+   struct kalmanmessage *km = (struct kalmanmessage*)buf;
 
-      // copy message
-      {
-         kalmsg.SystemTime = km->sysTime;
-         kalmsg.GPSTime = km->GPSTime;
-         kalmsg.Latitude = km-> lat;
-         kalmsg.Longitude = km-> lon;
-         kalmsg.EllipsoidalHeight = km-> ellHeight;
-         kalmsg.VelocityNorth = km-> velNorth;
-         kalmsg.VelocityEast = km-> velEast;
-         kalmsg.VelocityDown = km-> velDown;
-         kalmsg.Roll = km-> roll;
-         kalmsg.Pitch = km-> pitch;
-         kalmsg.Heading = km-> heading;
-         kalmsg.PositionMode = km-> posMode;
-         kalmsg.VelocityMode = km-> velMode;
-         kalmsg.AttitudeStatus = km-> attStatus;
-      }	
+   // copy message
+
+   kalmsg.SystemTime = km->sysTime;
+   kalmsg.GPSTime = km->GPSTime;
+   kalmsg.Latitude = km->lat;
+   kalmsg.Longitude = km->lon;
+   kalmsg.EllipsoidalHeight = km->ellHeight;
+   kalmsg.VelocityNorth = km->velNorth;
+   kalmsg.VelocityEast = km->velEast;
+   kalmsg.VelocityDown = km->velDown;
+   kalmsg.Roll = km->roll;
+   kalmsg.Pitch = km->pitch;
+   kalmsg.Heading = km->heading;
+   kalmsg.PositionMode = km->posMode;
+   kalmsg.VelocityMode = km->velMode;
+   kalmsg.AttitudeStatus = km->attStatus;
+
 }
 
 void parse_RawIMU_message(uint8_t *buf, polyx_nodea::RawIMU &imsg)
 {
-	struct rawImuMessage *im = (struct rawImuMessage*)buf;
+   struct rawImuMessage *im = (struct rawImuMessage*)buf;
 
-	  // copy message
-	  {
-	     int i;
-	     
-	     imsg.SystemTime = im->sysTime;
-	     for (i = 0; i < 3; i++) imsg.Acceleration[i] = im->acc[i];
-		 for (i = 0; i < 3; i++) imsg.RotationRate[i] = im->rotRate[i];
-	  }
+   // copy message
+
+   int i;
+
+   imsg.SystemTime = im->sysTime;
+   for (i = 0; i < 3; i++) imsg.Acceleration[i] = im->acc[i];
+   for (i = 0; i < 3; i++) imsg.RotationRate[i] = im->rotRate[i];
+
 }
 
 void parse_SolutionStatus_message(uint8_t *buf, polyx_nodea::SolutionStatus &smsg)
 {
-	struct solutionStatusMessage *im = (struct solutionStatusMessage*)buf;
+   struct solutionStatusMessage *im = (struct solutionStatusMessage*)buf;
 
-	  // copy message
-	  {
-	     int i;
-	     
-	     smsg.SystemTime = im->systemTime;
-	     smsg.GpsWeekNumber = im->week;
-	     smsg.NumberOfSVs = im->NumberOfSVs;
-	     smsg.ProcessingMode = im->ProcessingMode;
-	     smsg.GpsTimeWeek = im->GPSTimeWeek;
-	     for (i = 0; i < 3; i++) smsg.PositionRMS[i] = im->PositionRMS[i];
-		 for (i = 0; i < 3; i++) smsg.VelocityRMS[i] = im->VelocityRMS[i];
-		 for (i = 0; i < 3; i++) smsg.AttitudeRMS[i] = im->AttitudeRMS[i];	
-	  }
+   // copy message
+
+   int i;
+
+   smsg.SystemTime = im->systemTime;
+   smsg.GpsWeekNumber = im->week;
+   smsg.NumberOfSVs = im->NumberOfSVs;
+   smsg.ProcessingMode = im->ProcessingMode;
+   smsg.GpsTimeWeek = im->GPSTimeWeek;
+   for (i = 0; i < 3; i++) smsg.PositionRMS[i] = im->PositionRMS[i];
+   for (i = 0; i < 3; i++) smsg.VelocityRMS[i] = im->VelocityRMS[i];
+   for (i = 0; i < 3; i++) smsg.AttitudeRMS[i] = im->AttitudeRMS[i];
+
 }
 
 void parse_Icd_message(uint8_t *buf, polyx_nodea::Icd &msg)
 {
-	struct icdmessage *im = (struct icdmessage*)buf;
+   struct icdmessage *im = (struct icdmessage*)buf;
 
-	  // copy message
-	  {
-	     int i;
-	     
-	     msg.GpsTimeWeek = im->tow;
-	     msg.Latitude = im->lat*DEG_TO_RAD;
-	     msg.Longitude = im->lon*DEG_TO_RAD;
-	     msg.Altitude = im->alt;
-	     for (i = 0; i < 3; i++) msg.VelocityNED[i] = im->vel[i];
-	     for (i = 0; i < 4; i++) msg.Quaternion[i] = im->q_bn[i];
-	     for (i = 0; i < 3; i++) msg.Acceleration[i] = im->acc[i];
-	     for (i = 0; i < 3; i++) msg.RotationRate[i] = im->rot_rate[i]*DEG_TO_RAD;
-	     for (i = 0; i < 3; i++) msg.PositionRMS[i] = im->pos_rms[i];
-	     for (i = 0; i < 3; i++) msg.VelocityRMS[i] = im->vel_rms[i];
-	     for (i = 0; i < 3; i++) msg.AttitudeRMS[i] = im->att_rms[i]*DEG_TO_RAD;
-	     msg.GpsWeekNumber = im->week;
-	     msg.Alignment = im->align_mode;
+   // copy message
 
-	     GpsToEpoch( msg.GpsWeekNumber, msg.GpsTimeWeek, msg.header.stamp);
-	  }
+   int i;
+
+   msg.GpsTimeWeek = im->tow;
+   msg.Latitude = im->lat*DEG_TO_RAD;
+   msg.Longitude = im->lon*DEG_TO_RAD;
+   msg.Altitude = im->alt;
+   for (i = 0; i < 3; i++) msg.VelocityNED[i] = im->vel[i];
+   for (i = 0; i < 4; i++) msg.Quaternion[i] = im->q_bn[i];
+   for (i = 0; i < 3; i++) msg.Acceleration[i] = im->acc[i];
+   for (i = 0; i < 3; i++) msg.RotationRate[i] = im->rot_rate[i] * DEG_TO_RAD;
+   for (i = 0; i < 3; i++) msg.PositionRMS[i] = im->pos_rms[i];
+   for (i = 0; i < 3; i++) msg.VelocityRMS[i] = im->vel_rms[i];
+   for (i = 0; i < 3; i++) msg.AttitudeRMS[i] = im->att_rms[i] * DEG_TO_RAD;
+   msg.GpsWeekNumber = im->week;
+   msg.Alignment = im->align_mode;
+
+   if (msg.GpsWeekNumber > 0)
+      GpsToEpoch(msg.GpsWeekNumber, msg.GpsTimeWeek, msg.header.stamp);
+   else
+   	  msg.header.stamp = ros::Time::now();
+
+
 }
 
 void parse_TimeSync_message(uint8_t *buf, polyx_nodea::TimeSync &tsmsg)
 {
-  struct timeSyncmessage *tsm = (struct timeSyncmessage*)buf;
+   struct timeSyncmessage *tsm = (struct timeSyncmessage*)buf;
 
-    // copy message
-    {      
-       tsmsg.SystemComputerTime = tsm->systemComTime;
-       tsmsg.BiasToGPSTime = tsm->biasToGPSTime;
-    }
+   // copy message
+
+   tsmsg.SystemComputerTime = tsm->systemComTime;
+   tsmsg.BiasToGPSTime = tsm->biasToGPSTime;
+
 }
 
 void parse_Geoid_message(uint8_t *buf, polyx_nodea::Geoid &gmsg)
 {
-	struct geoidmessage *gm = (struct geoidmessage*)buf;
+   struct geoidmessage *gm = (struct geoidmessage*)buf;
 
-      // copy message
-      {
-         gmsg.GPSTime = gm->gpstime;
-         gmsg.GeoidHeight = gm->geoidheight;
-      }
+   // copy message
+
+   gmsg.GPSTime = gm->gpstime;
+   gmsg.GeoidHeight = gm->geoidheight;
+
 }
 
 void parse_CorrectedIMU_message(uint8_t *buf, polyx_nodea::CorrectedIMU &imsg)
 {
-	struct correctedImuMessage *im = (struct correctedImuMessage*)buf;
+   struct correctedImuMessage *im = (struct correctedImuMessage*)buf;
 
-	  // copy message
-	  {
-	     int i;
-	     
-	     imsg.GpsTimeWeek = im->GPSTimeWeek;
-	     for (i = 0; i < 3; i++) imsg.Acceleration[i] = im->acc[i];
-		   for (i = 0; i < 3; i++) imsg.RotationRate[i] = im->rotRate[i];
-	     imsg.GpsWeekNumber = im->week;
-	  }
+   // copy message
+   int i;
+
+   imsg.GpsTimeWeek = im->GPSTimeWeek;
+   for (i = 0; i < 3; i++) imsg.Acceleration[i] = im->acc[i];
+   for (i = 0; i < 3; i++) imsg.RotationRate[i] = im->rotRate[i];
+   imsg.GpsWeekNumber = im->week;
 }
 
 // %Tag(CALLBACK)%
 void polyxWheelSpeedReportCallback(const polyx_nodea::WheelSpeedReport::ConstPtr& msg)
 {
-  int gpsweek = 0;
-  double tow =0.0;
 
-  ROS_INFO(">>> Received a WheelSpeedReport message:\n");
+   ROS_INFO(">>> Received a WheelSpeedReport message:\n");
 
-  ROS_INFO("message[%p], front_left=%f", msg, msg->front_left);
-  ROS_INFO("message[%p], front_right=%f", msg, msg->front_right);
-  ROS_INFO("message[%p], rear_left=%f", msg, msg->rear_left);
-  ROS_INFO("message[%p], rear_right=%f\n", msg, msg->rear_right);
-  
-  struct speedmessage sm;
-  sm.sync1 = 0xAF;
-  sm.sync2 = 0x20;
-  sm.msg_type = 0x05;
-  sm.sub_id = 0x0C;
-  sm.payload_len = 25;
-  
- // EpochToGps( ros::Time::now(), gpsweek, sm.tow); 
-  EpochToGps( msg->header.stamp, gpsweek, tow);
-  sm.tow = tow;
+   struct speedmessage sm;
+   sm.sync1 = 0xAF;
+   sm.sync2 = 0x20;
+   sm.msg_type = 0x09;
+   sm.sub_id = 0x04;
+   sm.payload_len = 15;
 
-  sm.front_left = msg->front_left;
-  sm.front_right = msg->front_right;
-  sm.rear_left = msg->rear_left;
-  sm.rear_right = msg->rear_right;
-  sm.validity = 0xF;
+   sm.time = msg->Time;
+   sm.speed = msg->Speed;
+   sm.speed_RMS = msg->Speed_RMS;
+   sm.flags = msg->Flags;
 
-  checksum( (uint8_t*)&sm.tow, 25, sm.chksumA, sm.chksumB);
-  
-  if (fd_mon >0) 
-  {  int num;
-     num = write_port( fd_mon, &sm, sizeof(sm));  
-  }
+   checksum((uint8_t*)&sm.time, 15, sm.chksumA, sm.chksumB);
+
+   if (fd_mon > 0)
+   {
+      int num;
+      num = write_port(fd_mon, &sm, sizeof(sm));
+      printf("write wheel speed message to port successfully\n");
+   }
 }
 
 void polyxStaticHeadingEventCallback(const polyx_nodea::StaticHeadingEvent::ConstPtr& stmsg)
 {
 
-  ROS_INFO(">>> Received a StaticHeadingEvent message:\n");
+   ROS_INFO(">>> Received a StaticHeadingEvent message:\n");
 
-  ROS_INFO("message[%p], Heading=%d", stmsg, stmsg->Heading);
-  ROS_INFO("message[%p], ZUPT RMS=%d", stmsg, stmsg->ZUPTRMS);
-  ROS_INFO("message[%p], Heading RMS=%d\n", stmsg, stmsg->HeadingRMS);
-  
-  struct staticHeadingmessage stm;
-  stm.sync1 = 0xAF;
-  stm.sync2 = 0x20;
-  stm.msg_type = 0x09;
-  stm.sub_id = 0x02;
-  stm.payload_len = 5;
-  
+   ROS_INFO("message[%p], Heading=%d", stmsg, stmsg->Heading);
+   ROS_INFO("message[%p], ZUPT RMS=%d", stmsg, stmsg->ZUPTRMS);
+   ROS_INFO("message[%p], Heading RMS=%d\n", stmsg, stmsg->HeadingRMS);
 
-  stm.heading = stmsg->Heading;
-  stm.ZUPT_RMS = stmsg->ZUPTRMS;
-  stm.heading_RMS = stmsg->HeadingRMS;
+   struct staticHeadingmessage stm;
+   stm.sync1 = 0xAF;
+   stm.sync2 = 0x20;
+   stm.msg_type = 0x09;
+   stm.sub_id = 0x02;
+   stm.payload_len = 5;
 
-  checksum( (uint8_t*)&stm.heading, 5, stm.chksumA, stm.chksumB);
-  
-  if (fd_mon >0) 
-  {  int num;
-     num = write_port( fd_mon, &stm, sizeof(stm));  
-     printf("write static heading message to port successfully\n");
-  }
+
+   stm.heading = stmsg->Heading;
+   stm.ZUPT_RMS = stmsg->ZUPTRMS;
+   stm.heading_RMS = stmsg->HeadingRMS;
+
+   checksum((uint8_t*)&stm.heading, 5, stm.chksumA, stm.chksumB);
+
+   if (fd_mon > 0)
+   {
+      int num;
+      num = write_port(fd_mon, &stm, sizeof(stm));
+      printf("write static heading message to port successfully\n");
+   }
 }
 
 void polyxStaticGeoPoseEventCallback(const polyx_nodea::StaticGeoPoseEvent::ConstPtr& sgmsg)
 {
 
-  ROS_INFO(">>> Received a StaticGeoPoseEvent message:\n");
-  
-  struct staticGeoPosemessage sgm;
-  sgm.sync1 = 0xAF;
-  sgm.sync2 = 0x20;
-  sgm.msg_type = 0x09;
-  sgm.sub_id = 0x03;
-  sgm.payload_len = 32;
-  
-  sgm.latitude = sgmsg->Latitude;
-  sgm.longitude = sgmsg->Longitude;
-  sgm.height = sgmsg->EllipsoidalHeight;
-  sgm.roll = sgmsg->Roll;
-  sgm.pitch = sgmsg->Pitch;
-  sgm.heading = sgmsg->Heading;
-  sgm.PositionRMS = sgmsg->PositionRMS;
-  sgm.ZUPT_RMS = sgmsg->ZUPTRMS;
-  sgm.heading_RMS = sgmsg->HeadingRMS;
-  sgm.flags = sgmsg->Flags;
+   ROS_INFO(">>> Received a StaticGeoPoseEvent message:\n");
 
-  checksum( (uint8_t*)&sgm.latitude, 32, sgm.chksumA, sgm.chksumB);
-  
-  if (fd_mon >0) 
-  {  int num;
-     num = write_port( fd_mon, &sgm, sizeof(sgm));  
-     printf("write static geo-pose message to port successfully\n");
-  }
+   struct staticGeoPosemessage sgm;
+   sgm.sync1 = 0xAF;
+   sgm.sync2 = 0x20;
+   sgm.msg_type = 0x09;
+   sgm.sub_id = 0x03;
+   sgm.payload_len = 32;
+
+   sgm.latitude = sgmsg->Latitude;
+   sgm.longitude = sgmsg->Longitude;
+   sgm.height = sgmsg->EllipsoidalHeight;
+   sgm.roll = sgmsg->Roll;
+   sgm.pitch = sgmsg->Pitch;
+   sgm.heading = sgmsg->Heading;
+   sgm.PositionRMS = sgmsg->PositionRMS;
+   sgm.ZUPT_RMS = sgmsg->ZUPTRMS;
+   sgm.heading_RMS = sgmsg->HeadingRMS;
+   sgm.flags = sgmsg->Flags;
+
+   checksum((uint8_t*)&sgm.latitude, 32, sgm.chksumA, sgm.chksumB);
+
+   if (fd_mon > 0)
+   {
+      int num;
+      num = write_port(fd_mon, &sgm, sizeof(sgm));
+      printf("write static geo-pose message to port successfully\n");
+   }
 }
 
 /**
@@ -517,9 +512,9 @@ int main(int argc, char **argv)
       */
       // %Tag(PUBLISHER)%
    ros::Publisher kalman_pub = n.advertise<polyx_nodea::Kalman>("polyx_Kalman", 2);
-   
+
    ros::Publisher RawIMU_pub = n.advertise<polyx_nodea::RawIMU>("polyx_rawIMU", 2);
-   
+
    ros::Publisher SolutionStatus_pub = n.advertise<polyx_nodea::SolutionStatus>("polyx_solutionStatus", 2);
 
    ros::Publisher icd_pub = n.advertise<polyx_nodea::Icd>("polyx_ICD", 2);
@@ -587,12 +582,12 @@ int main(int argc, char **argv)
    }
    else my_baud = SERIAL_BAUD;
 
-   int my_output; 
+   int my_output;
    if (n.getParam("/polyx_output", my_output)) {
       ROS_INFO("output msgs=%d", my_output);
    }
-   else my_baud =OUT_ICD | OUT_GEOPOSE | OUT_TWIST | OUT_ACCEL | OUT_NAVSATFIX | OUT_IMU;
- 
+   else my_baud = OUT_ICD | OUT_GEOPOSE | OUT_TWIST | OUT_ACCEL | OUT_NAVSATFIX | OUT_IMU;
+
    std::string my_speedreport;
    if (n.getParam("/polyx_speedreport", my_speedreport)) {
       ROS_INFO("speed report=%s", my_speedreport.c_str());
@@ -612,46 +607,47 @@ int main(int argc, char **argv)
    else my_staticgeopose = "polyx_StaticGeoPose";
 
    /*
-   * Start the Listner part 
+   * Start the Listner part
    *
    * The second parameter to the subscribe() function is the size of the message
    * queue.  If messages are arriving faster than they are being processed, this
    * is the number of messages that will be buffered up before beginning to throw
    * away the oldest ones.
    */
-// %Tag(SUBSCRIBER)%
-  ros::Subscriber sub = n.subscribe(my_speedreport, 100, polyxWheelSpeedReportCallback);
+   // %Tag(SUBSCRIBER)%
+   ros::Subscriber wheelSpeed_sub = n.subscribe(my_speedreport, 100, polyxWheelSpeedReportCallback);
 
-  ros::Subscriber staticHeading_sub = n.subscribe("polyx_StaticHeading", 100, polyxStaticHeadingEventCallback);
+   ros::Subscriber staticHeading_sub = n.subscribe("polyx_StaticHeading", 100, polyxStaticHeadingEventCallback);
 
-  ros::Subscriber staticGeoPose_sub = n.subscribe("polyx_StaticGeoPose", 100, polyxStaticGeoPoseEventCallback);
-  // %EndTag(SUBSCRIBER)%
+   ros::Subscriber staticGeoPose_sub = n.subscribe("polyx_StaticGeoPose", 100, polyxStaticGeoPoseEventCallback);
+   // %EndTag(SUBSCRIBER)%
 
-  /**
-   * ros::spin() will enter a loop, pumping callbacks.  With this version, all
-   * callbacks will be called from within this thread (the main one).  ros::spin()
-   * will exit when Ctrl-C is pressed, or the node is shutdown by the master.
-   */
-// %Tag(SPIN)%
-//  ros::spin();
-// %EndTag(SPIN)%
-  
-   /*
-   *  Start the talker part to check the serial port for data
-   */
-    while (ros::ok())
-   { 
-     int new_output; 
-     // check output msg control changed or not
-     if (n.getParam("/polyx_output", new_output)) {
-       if (new_output != my_output) {
-          ROS_INFO("changed otput msgs=%d", new_output);
-          my_output = new_output;
-       }
-     }
-     //
+   /**
+    * ros::spin() will enter a loop, pumping callbacks.  With this version, all
+    * callbacks will be called from within this thread (the main one).  ros::spin()
+    * will exit when Ctrl-C is pressed, or the node is shutdown by the master.
+    */
+    // %Tag(SPIN)%
+    //  ros::spin();
+    // %EndTag(SPIN)%
 
-      // %Tag(SPINONCE)%
+       /*
+       *  Start the talker part to check the serial port for data
+       */
+   while (ros::ok())
+   {
+      int new_output;
+      // check output msg control changed or not
+      if (n.getParam("/polyx_output", new_output)) 
+      {
+         if (new_output != my_output) {
+            ROS_INFO("changed otput msgs=%d", new_output);
+            my_output = new_output;
+         }
+      }
+      //
+
+       // %Tag(SPINONCE)%
       ros::spinOnce();
       // %EndTag(SPINONCE)%
 
@@ -659,7 +655,9 @@ int main(int argc, char **argv)
       if (fd_mon < 0)
       {
          fd_mon = open_mon(my_port.c_str(), my_baud);
-         if (fd_mon < 0) {
+         
+         if (fd_mon < 0) 
+         {
             perror("open serial port error");
             usleep(200 * 1000);   // delay 200ms
 //			   continue;
@@ -668,7 +666,8 @@ int main(int argc, char **argv)
       }
 
       num = read_port(fd_mon, recvbuf, 256, &tout);
-      if (num < 0) {
+      if (num < 0) 
+      {
          if ((errno != EAGAIN) && (errno != EWOULDBLOCK))
          {
             perror("read serial port error");
@@ -678,7 +677,8 @@ int main(int argc, char **argv)
             goto loop_ros;
          }
       }
-      else {
+      else 
+      {
          int i;
          for (i = 0; i < num; i++)
          {
@@ -728,124 +728,127 @@ int main(int argc, char **argv)
                if (bufpos == (msglen + 8))  // got full message
                {
                   state = 0;
-                  if (checkMessageType(buf) == ICD_TYPE) 
+                  if (checkMessageType(buf) == ICD_TYPE)
                   {
-                  	switch(buf[3])
-                  	{
-                  		case 1:
-                  			 printf("found message: Type=%02d, SubId=%02d, length=%03d\n", buf[2], buf[3], msglen);
-                  			 parse_Kalman_message(buf, kalmsg);
+                     switch (buf[3])
+                     {
+                     case 1:
+                        printf("found message: Type=%02d, SubId=%02d, length=%03d\n", buf[2], buf[3], msglen);
+                        parse_Kalman_message(buf, kalmsg);
 
-                  			 ROS_INFO("%u, %f", count, kalmsg.SystemTime);
-			                   ROS_INFO("%u, %f", count++, kalmsg.GPSTime);
-			                 
-                  			 kalman_pub.publish(kalmsg);
-                  			 
-			              	 break;
-    			            case 8:
-    			            	 printf("found message: Type=%02d, SubId=%02d, length=%03d\n", buf[2], buf[3], msglen);
-    			            	 parse_RawIMU_message(buf, imsg);
-    			            	 ROS_INFO("%u, %f", count++, imsg.SystemTime);
-    			            	 RawIMU_pub.publish(imsg);
-    			            	 break;
-    		            	case 9:
-    			            	 printf("found message: Type=%02d, SubId=%02d, length=%03d\n", buf[2], buf[3], msglen);
-    			            	 parse_SolutionStatus_message(buf, smsg);
-    			            	 ROS_INFO("%u, %f", count++, smsg.SystemTime);
-    			            	 SolutionStatus_pub.publish(smsg);
-    			            	 break;
-                  		
-                  		case 13:
-			              	   printf("found message: Type=%02d, SubId=%02d, length=%03d\n", buf[2], buf[3], msglen);
-  			              	 parse_Icd_message(buf, msg);
-  			                 // %Tag(ROSCONSOLE)%
-  			                 ROS_INFO("%u, %d", count++, msg.GpsWeekNumber);
-  			                 // %EndTag(ROSCONSOLE)%
-  			                 // %Tag(PUBLISH)%
-  			                 if (my_output & OUT_ICD)  icd_pub.publish(msg);
-  			                 if (my_output & OUT_GEOPOSE)
-  			                 {
-  			                    geographic_msgs::GeoPoseStamped pmsg;
-  			                    icd_to_GeoPoseStamped(msg, pmsg);
-  			                    geopose_pub.publish(pmsg);
-  			                 }
-  			                 if (my_output & OUT_TWIST)
-  			                 {    
-  			                    geometry_msgs::TwistStamped tmsg;
-  			                    icd_to_TwistStamped(msg, tmsg);                    
-  			                    twist_pub.publish(tmsg);
-  			                  }
-  			                  if (my_output & OUT_ACCEL)
-  			                  {
-  			                    geometry_msgs::AccelStamped amsg;
-  			                    icd_to_AccelStamped(msg, amsg);
-  			                    accel_pub.publish(amsg);
-  			                  }
-  			                  if (my_output & OUT_NAVSATFIX)
-  			                  {
-  			                    sensor_msgs::NavSatFix nmsg;
-  			                    icd_to_NavSatFix(msg, nmsg);
-  			                    navfix_pub.publish(nmsg);
-  			                  }
-  			                  if (my_output & OUT_IMU)
-  			                  {
-  			                     sensor_msgs::Imu imsg;
-  			                     icd_to_Imu( msg, imsg);
-  			                     imu_pub.publish( imsg);
-  			                  }
-  			                  if (my_output & OUT_EULER_ATT)
-  			                  {
-  			                  	 if (EulerAttitude(msg, qtemsg)) EulerAttitude_pub.publish(qtemsg);
-  			                  }
-  			                  if (!is_origin_set) {
-  								
-  			                    SetCustomOrigin(0, 0, 0, myorigin);
-  								
-  			                    SetOrigin( msg, myorigin);
-  								
-  			                    is_origin_set = true;
-  			                  }
-  			                  else {
-  			                    if (my_output & OUT_POSE)
-  			                    {
-  			                      geometry_msgs::PoseStamped pmsg;
-  			                      icd_to_PoseStamped(msg, myorigin, pmsg );                    
-  			                      pose_pub.publish(pmsg);
-  			                    }
-  			                  }
-  			                  break;
+                        ROS_INFO("%u, %f", count, kalmsg.SystemTime);
+                        ROS_INFO("%u, %f", count++, kalmsg.GPSTime);
 
-                      case 16:
-                           printf("found message: Type=%02d, SubId=%02d, length=%03d\n", buf[2], buf[3], msglen);
-                           parse_TimeSync_message(buf, tsmsg);
-                           timeSync_pub.publish(tsmsg);
-                           break;
+                        kalman_pub.publish(kalmsg);
 
-    			            case 22:
-            							 printf("found message: Type=%02d, SubId=%02d, length=%03d\n", buf[2], buf[3], msglen);
-            							 parse_Geoid_message(buf, gmsg);
-    			                 
-    			                 ROS_INFO("%u, %f", count, gmsg.GPSTime);
-    			                 ROS_INFO("%u, %f", count++, gmsg.GeoidHeight);
-    			                
-    			                 geoid_pub.publish(gmsg);
-    			              	 break;
+                        break;
+                     case 8:
+                        printf("found message: Type=%02d, SubId=%02d, length=%03d\n", buf[2], buf[3], msglen);
+                        parse_RawIMU_message(buf, imsg);
+                        ROS_INFO("%u, %f", count++, imsg.SystemTime);
+                        RawIMU_pub.publish(imsg);
+                        break;
+                     case 9:
+                        printf("found message: Type=%02d, SubId=%02d, length=%03d\n", buf[2], buf[3], msglen);
+                        parse_SolutionStatus_message(buf, smsg);
+                        ROS_INFO("%u, %f", count++, smsg.SystemTime);
+                        SolutionStatus_pub.publish(smsg);
+                        break;
 
-    			            case 23:
-    			            	   printf("found message: Type=%02d, SubId=%02d, length=%03d\n", buf[2], buf[3], msglen);
-    			                 parse_CorrectedIMU_message(buf, cimsg);
+                     case 13:
+                        printf("found message: Type=%02d, SubId=%02d, length=%03d\n", buf[2], buf[3], msglen);
+                        parse_Icd_message(buf, msg);
+                        // %Tag(ROSCONSOLE)%
+                        ROS_INFO("%u, %d", count++, msg.GpsWeekNumber);
+                        // %EndTag(ROSCONSOLE)%
+                        // %Tag(PUBLISH)%
+                        if (my_output & OUT_ICD)  icd_pub.publish(msg);
+                        if (my_output & OUT_GEOPOSE)
+                        {
+                           geographic_msgs::GeoPoseStamped pmsg;
+                           icd_to_GeoPoseStamped(msg, pmsg);
+                           geopose_pub.publish(pmsg);
+                        }
+                        if (my_output & OUT_TWIST)
+                        {
+                           geometry_msgs::TwistStamped tmsg;
+                           icd_to_TwistStamped(msg, tmsg);
+                           twist_pub.publish(tmsg);
+                        }
+                        if (my_output & OUT_ACCEL)
+                        {
+                           geometry_msgs::AccelStamped amsg;
+                           icd_to_AccelStamped(msg, amsg);
+                           accel_pub.publish(amsg);
+                        }
+                        if (my_output & OUT_NAVSATFIX)
+                        {
+                           sensor_msgs::NavSatFix nmsg;
+                           icd_to_NavSatFix(msg, nmsg);
+                           navfix_pub.publish(nmsg);
+                        }
+                        if (my_output & OUT_IMU)
+                        {
+                           sensor_msgs::Imu imsg;
+                           icd_to_Imu(msg, imsg);
+                           imu_pub.publish(imsg);
+                        }
+                        if (my_output & OUT_EULER_ATT)
+                        {
+                           if (EulerAttitude(msg, qtemsg)) EulerAttitude_pub.publish(qtemsg);
+                        }
+                        if (!is_origin_set) {
 
-    			                 ROS_INFO("%u, %f", count, cimsg.GpsTimeWeek);
-    			                 ROS_INFO("%u, %d", count++, cimsg.GpsWeekNumber);
+                           // To set your own fixed origin use SetCustomOrigin() and
+                           // comment out SetOrigin().
 
-    			                 CorrectedIMU_pub.publish(cimsg);
-    			                 break;
+                           // SetCustomOrigin(lat, lon, alt, myorigin);
 
-			                default :
-			            	       printf("skip packet[(%02X:%02X) type=%02d, subId=%02d, len=%d].\n", buf[0], buf[1], buf[2], buf[3], msglen);
-			        }
-			 	  }
-				}
+                           SetOrigin(msg, myorigin);
+
+                           is_origin_set = true;
+                        }
+
+                        if (my_output & OUT_POSE)
+                        {
+                           geometry_msgs::PoseStamped pmsg;
+                           icd_to_PoseStamped(msg, myorigin, pmsg);
+                           pose_pub.publish(pmsg);
+                        }
+
+                        break;
+
+                     case 16:
+                        printf("found message: Type=%02d, SubId=%02d, length=%03d\n", buf[2], buf[3], msglen);
+                        parse_TimeSync_message(buf, tsmsg);
+                        timeSync_pub.publish(tsmsg);
+                        break;
+
+                     case 22:
+                        printf("found message: Type=%02d, SubId=%02d, length=%03d\n", buf[2], buf[3], msglen);
+                        parse_Geoid_message(buf, gmsg);
+
+                        ROS_INFO("%u, %f", count, gmsg.GPSTime);
+                        ROS_INFO("%u, %f", count++, gmsg.GeoidHeight);
+
+                        geoid_pub.publish(gmsg);
+                        break;
+
+                     case 23:
+                        printf("found message: Type=%02d, SubId=%02d, length=%03d\n", buf[2], buf[3], msglen);
+                        parse_CorrectedIMU_message(buf, cimsg);
+
+                        ROS_INFO("%u, %f", count, cimsg.GpsTimeWeek);
+                        ROS_INFO("%u, %d", count++, cimsg.GpsWeekNumber);
+
+                        CorrectedIMU_pub.publish(cimsg);
+                        break;
+
+                     default:
+                        printf("skip packet[(%02X:%02X) type=%02d, subId=%02d, len=%d].\n", buf[0], buf[1], buf[2], buf[3], msglen);
+                     }
+                  }
+               }
                break;
             default:
                state = _SYNC1;
@@ -858,12 +861,12 @@ int main(int argc, char **argv)
       // %Tag(RATE_SLEEP)%
       loop_rate.sleep();
       // %EndTag(RATE_SLEEP)%
-   }
+   } // while (ros::ok())
 
    close(fd_mon);
    fd_mon = -1;
-   
-   
+
+
    ros::waitForShutdown();
 
    return 0;

@@ -179,17 +179,16 @@ struct   __attribute__((packed)) speedmessage
 {
   unsigned char sync1;             // 0xAF
   unsigned char sync2;             // 0x20
-  unsigned char msg_type;          // 0x05
-  unsigned char sub_id;            // 0x0C (12)
-  unsigned short int payload_len;  // 25
+  unsigned char msg_type;          // 0x09
+  unsigned char sub_id;            // 0x04
+  unsigned short int payload_len;  // 15
 
   // --- payload data  
-  double   tow;                    // GPS time of week (seconds)
-  float    front_left;             // rad/s
-  float    front_right;
-  float    rear_left;  
-  float    rear_right;
-  unsigned char  validity;         // bits 0-3, FL,FR,RL,RR
+  double             time;          //(seconds)
+  float              speed;         // m/s
+  unsigned short int speed_RMS;     // mm/s (0:Invalid speed)
+  unsigned char      flags;         // 0 : Nav System 1 : GPS
+
 // ----- end payload    
   unsigned char chksumA;
   unsigned char chksumB;

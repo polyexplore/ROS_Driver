@@ -27,11 +27,11 @@
  #include "ros/ros.h"
  // %EndTag(ROS_HEADER)%
  // %Tag(MSG_HEADER)%
-#include "std_msgs/String.h"
+ #include "std_msgs/String.h"
 
-#include "polyx_nodea/Icd.h"
+ #include "polyx_nodea/Icd.h"
 
-#include "polyx_nodea/WheelSpeedReport.h"
+ #include "polyx_nodea/WheelSpeedReport.h"
 
 /**
  * This tutorial demonstrates simple sending of messages over the ROS system.
@@ -81,7 +81,7 @@
        * buffer up before throwing some away.
        */
        // %Tag(PUBLISHER)%
-    ros::Publisher chatter_pub = n.advertise<polyx_nodea::WheelSpeedReport>("polyx_WheelSpeed", 1000);
+    ros::Publisher WheelSpeed_pub = n.advertise<polyx_nodea::WheelSpeedReport>("polyx_WheelSpeed", 1000);
     // %EndTag(PUBLISHER)%
  
     // %Tag(LOOP_RATE)%
@@ -90,25 +90,55 @@
  
     polyx_nodea::WheelSpeedReport msg;
     
+
+    double duration = 5.0; // seconds
+
+    // Default message for testing
+
+    msg.Time = 0;       // seconds
+    msg.Speed = 0;      // m/s
+    msg.Speed_RMS = 0;  // mm/s
+
+    // Parse message contents from command line arguments
+    if (argc == 6)
+    {
+       
+       msg.Time = static_cast<double>(atof(argv[1]));
+
+       msg.Speed = static_cast<float>(atof(argv[2]));
+
+       msg.Speed_RMS = static_cast<unsigned short int>(atof(argv[3]));
+
+       msg.Flags = static_cast<unsigned char>(atof(argv[4]));
+
+       duration = atof(argv[5]);
+    }
+
+   double start_time = ros::Time::now().toSec();
+
    /*
    *  Start the talker part to check the serial port for data
    */
    while (ros::ok())
    {
-    
+
       msg.header.stamp = ros::Time::now();
-      msg.front_left = 1.0 + 0.01*count;
-      msg.front_right = 0.9;
-      msg.rear_left = 0.998;
-      msg.rear_right = 0.989;
 
-    ROS_INFO("%u, %g", count++, msg.front_left);
-    // %EndTag(ROSCONSOLE)%
-    // %Tag(PUBLISH)%
-    chatter_pub.publish(msg);
-    // %EndTag(PUBLISH)%
+      if (msg.header.stamp.toSec() - start_time > duration)
+         break;
 
-   loop_ros:
+      printf("Sent a Wheel Speed Event Message, count = %d\n", ++count);
+      ROS_INFO("Time = %f seconds", msg.Time);
+      ROS_INFO("Speed = %f m/s", msg.Speed);
+      ROS_INFO("Speed RMS = %d mm/s", msg.Speed_RMS);
+      ROS_INFO("Flags = %d\n", msg.Flags);
+
+      // %EndTag(ROSCONSOLE)%
+      // %Tag(PUBLISH)%
+      WheelSpeed_pub.publish(msg);
+      // %EndTag(PUBLISH)%
+
+      loop_ros:
 
       // %Tag(SPINONCE)%
       ros::spinOnce();
