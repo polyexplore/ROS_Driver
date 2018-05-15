@@ -24,11 +24,23 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+
+#include <math.h>
+#include <sstream>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/ioctl.h>
+#include <fcntl.h>
+#include <errno.h>      /* Error number definitions */ 
+#include <unistd.h>
+#include <string.h>
+#include <termios.h>    /* POSIX terminal control definitions */
+#include <time.h> 
+#include <signal.h>
+
 #include "ros/ros.h"
  // %EndTag(ROS_HEADER)%
  // %Tag(MSG_HEADER)%
-#include "std_msgs/String.h"
-
 #include "polyx_nodea/Kalman.h"
 #include "polyx_nodea/RawIMU.h"
 #include "polyx_nodea/SolutionStatus.h"
@@ -37,41 +49,21 @@
 #include "polyx_nodea/TimeSync.h"
 #include "polyx_nodea/Geoid.h"
 #include "polyx_nodea/CorrectedIMU.h"
-
 #include "polyx_nodea/WheelSpeedReport.h"
 #include "polyx_nodea/StaticHeadingEvent.h"
 #include "polyx_nodea/StaticGeoPoseEvent.h"
-
+ // %EndTag(MSG_HEADER)%
+#include "std_msgs/String.h"
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/TwistStamped.h>
 #include <geometry_msgs/AccelStamped.h>
 #include <geographic_msgs/GeoPoseStamped.h>
-
 
 #include <nav_msgs/Odometry.h>
 #include <sensor_msgs/NavSatFix.h>
 #include <sensor_msgs/Imu.h>
 
 #include "polyxdata.h"
-
-#include <math.h>
-
-// %EndTag(MSG_HEADER)%
-
-#include <sstream>
-//
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/ioctl.h>
-#include <fcntl.h>
-#include <errno.h>      /* Error number definitions */ 
-#include <unistd.h>
-#include <string.h>
-
-#include <termios.h>    /* POSIX terminal control definitions */
-
-#include <time.h> 
-
 #include "polyx_convert.h"
 
 #define MON_PORT "/dev/ttyUSB1"
@@ -81,13 +73,37 @@
 
 #define SERIAL_WAIT (1000000/46080)
 #define SERIAL_TIMEOUT 10   // seconds
-
 #define SERIAL_BAUD 230400
+#define MASK_SIG_UART 1
 
+static bool keepRunning = true;
 
 // global serial port file descriptor
 int fd_mon = -1;
-static const int MaxMsgLen = 2048;
+#define MaxMsgLen 2048
+uint8_t recvbuf[MaxMsgLen];
+std::string my_port;
+int my_baud;
+
+void intHandler(int) 
+{
+   keepRunning = false;
+   printf("polyx_nodea_talker: Ctrl-C hit, will stop!\r\n");
+}
+
+void abortHandler(int) 
+{
+   keepRunning = false;
+   printf("polyx_nodea_talker: Asked to Abort, will stop!\r\n");
+}
+
+void segHandler(int) {
+   printf("polyx_nodea_talker: Segment Fault\r\n");
+}
+
+void ioHandler(int) {
+   printf("polyx_nodea_talker: Received SIGIO\r\n");
+}
 
 uint8_t checksum(uint8_t* Buffer, uint16_t len, uint8_t& cka, uint8_t& ckb)
 {
@@ -120,21 +136,47 @@ int write_port(int fd, void *buf, int len)
    fd_set outputs;
    int num, ret;
 
+#ifdef MASK_SIG_UART
+   sigset_t mask;
+   sigset_t orig_mask;
+
+   sigemptyset(&mask);
+   sigaddset(&mask, SIGIO);
+   sigaddset(&mask, SIGINT);
+   sigaddset(&mask, SIGABRT);
+
+   if (sigprocmask(SIG_BLOCK, &mask, &orig_mask) < 0)
+   {
+      perror("sigprocmask");
+      return -1;
+   }
+#endif
+
    num = 0;
 
    FD_ZERO(&outputs);
    FD_SET(fd, &outputs);
 
    ret = select(fd + 1, (fd_set *)NULL, &outputs, (fd_set *)NULL, &tout);
-   if (ret < 0) {
+   if (ret < 0)
+   {
       perror("select error!!");
-      return ret;
    }
-   if (ret > 0) {
-      if (FD_ISSET(fd, &outputs)) {
+   else if (ret > 0) 
+   {
+      if (FD_ISSET(fd, &outputs))
+      {
          num = write(fd, buf, len);
       }
    }
+
+#ifdef MASK_SIG_UART
+   if (sigprocmask(SIG_SETMASK, &orig_mask, NULL) < 0)
+   {
+
+   }
+#endif
+
    return num;
 }
 
@@ -150,24 +192,28 @@ int read_port(int fd, uint8_t *buf, size_t len, struct timeval *tout)
    FD_SET(fd, &inputs);
 
    ret = select(fd + 1, &inputs, (fd_set *)NULL, (fd_set *)NULL, tout);
-   //printf("select = %d\n", ret);
-   if (ret < 0) {
+
+   if (ret < 0)
+   {
       perror("select error!!");
-      return ret;
    }
-   if (ret > 0) {
-      if (FD_ISSET(fd, &inputs)) {
+   else if (ret > 0)
+   {
+      if (FD_ISSET(fd, &inputs))
+      {
          size_t len = 0;
          int errsav;
          ioctl(fd, FIONREAD, &len);
          errsav = errno;
-         if (len == 0) {
+         if (len == 0)
+         {
             return -EIO;
          }
-
          num = read(fd, buf, len);
       }
    }
+
+
    return num;
 }
 
@@ -182,18 +228,16 @@ int open_mon(const char *port, int baud)
    {
       perror("serial open");
       return fd;
-   }                                            // If the device is not open, return -1
-//	fcntl(fd, F_SETFL, FNDELAY);                                        // Open the device in nonblocking mode
-                                                      // Set parameters
+   }
    tcgetattr(fd, &options);                                            // Get the current options of the port
    bzero(&options, sizeof(options));                                   // Clear all the options
    speed_t         Speed;
 
-   switch (baud)                                                      // Set the speed (Bauds)
+   switch (baud)                                                       // Set the speed (Bauds)
    {
-   case 110:      Speed = B110; break;
-   case 300:      Speed = B300; break;
-   case 600:      Speed = B600; break;
+   case 110:     Speed = B110; break;
+   case 300:     Speed = B300; break;
+   case 600:     Speed = B600; break;
    case 1200:     Speed = B1200; break;
    case 2400:     Speed = B2400; break;
    case 4800:     Speed = B4800; break;
@@ -205,24 +249,24 @@ int open_mon(const char *port, int baud)
    case 230400:   Speed = B230400; break;
    case 460800:   Speed = B460800; break;
    case 921600:   Speed = B921600; break;
-   default:       Speed = baud;
+   default:  Speed = baud;
    }
    cfsetispeed(&options, Speed);                                       // Set the baud rate at 115200 bauds
    cfsetospeed(&options, Speed);
 
-   options.c_cflag |= (CLOCAL | CREAD | CS8);                        // Configure the device : 8 bits, no parity, no control
+   options.c_cflag |= (CLOCAL | CREAD | CS8);                          // Configure the device : 8 bits, no parity, no control
    options.c_iflag |= (IGNPAR | IGNBRK);
-   options.c_cc[VTIME] = 0;                                              // Timer unused
-   options.c_cc[VMIN] = 0;                                               // At least on character before satisfy reading
+   options.c_cc[VTIME] = 0;                                            // Timer unused
+   options.c_cc[VMIN] = 0;                                             // At least on character before satisfy reading
 
-   options.c_cflag |= CREAD | CLOCAL;     // turn on READ & ignore ctrl lines
-   options.c_iflag &= ~(IXON | IXOFF | IXANY);// turn off s/w flow ctrl
-   options.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG); // make raw
-   options.c_oflag &= ~OPOST;              // make raw
+   options.c_cflag |= CREAD | CLOCAL;     							        // turn on READ & ignore ctrl lines
+   options.c_iflag &= ~(IXON | IXOFF | IXANY);                         // turn off s/w flow ctrl
+   options.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);                 // make raw
+   options.c_oflag &= ~OPOST;                                          // make raw
 
    tcsetattr(fd, TCSANOW, &options);                                   // Activate the settings
 
-   return fd;  // successful
+   return fd;                                                          // successful
 }
 
 #define DEG_TO_RAD (0.017453292519943295)
@@ -251,12 +295,9 @@ uint8_t checkMessageType(uint8_t *buf)
    return messageType;
 }
 
-
 void parse_Kalman_message(uint8_t *buf, polyx_nodea::Kalman &kalmsg)
 {
    struct kalmanmessage *km = (struct kalmanmessage*)buf;
-
-   // copy message
 
    kalmsg.SystemTime = km->sysTime;
    kalmsg.GPSTime = km->GPSTime;
@@ -279,8 +320,6 @@ void parse_RawIMU_message(uint8_t *buf, polyx_nodea::RawIMU &imsg)
 {
    struct rawImuMessage *im = (struct rawImuMessage*)buf;
 
-   // copy message
-
    int i;
 
    imsg.SystemTime = im->sysTime;
@@ -292,8 +331,6 @@ void parse_RawIMU_message(uint8_t *buf, polyx_nodea::RawIMU &imsg)
 void parse_SolutionStatus_message(uint8_t *buf, polyx_nodea::SolutionStatus &smsg)
 {
    struct solutionStatusMessage *im = (struct solutionStatusMessage*)buf;
-
-   // copy message
 
    int i;
 
@@ -311,8 +348,6 @@ void parse_SolutionStatus_message(uint8_t *buf, polyx_nodea::SolutionStatus &sms
 void parse_Icd_message(uint8_t *buf, polyx_nodea::Icd &msg)
 {
    struct icdmessage *im = (struct icdmessage*)buf;
-
-   // copy message
 
    int i;
 
@@ -333,16 +368,12 @@ void parse_Icd_message(uint8_t *buf, polyx_nodea::Icd &msg)
    if (msg.GpsWeekNumber > 0)
       GpsToEpoch(msg.GpsWeekNumber, msg.GpsTimeWeek, msg.header.stamp);
    else
-   	  msg.header.stamp = ros::Time::now();
-
-
+      msg.header.stamp = ros::Time::now();
 }
 
 void parse_TimeSync_message(uint8_t *buf, polyx_nodea::TimeSync &tsmsg)
 {
    struct timeSyncmessage *tsm = (struct timeSyncmessage*)buf;
-
-   // copy message
 
    tsmsg.SystemComputerTime = tsm->systemComTime;
    tsmsg.BiasToGPSTime = tsm->biasToGPSTime;
@@ -353,7 +384,11 @@ void parse_Geoid_message(uint8_t *buf, polyx_nodea::Geoid &gmsg)
 {
    struct geoidmessage *gm = (struct geoidmessage*)buf;
 
-   // copy message
+   if (gm == NULL) 
+   {
+      printf("Geoid message is null!\n");
+      return;
+   }
 
    gmsg.GPSTime = gm->gpstime;
    gmsg.GeoidHeight = gm->geoidheight;
@@ -364,7 +399,6 @@ void parse_CorrectedIMU_message(uint8_t *buf, polyx_nodea::CorrectedIMU &imsg)
 {
    struct correctedImuMessage *im = (struct correctedImuMessage*)buf;
 
-   // copy message
    int i;
 
    imsg.GpsTimeWeek = im->GPSTimeWeek;
@@ -397,13 +431,12 @@ void polyxWheelSpeedReportCallback(const polyx_nodea::WheelSpeedReport::ConstPtr
    {
       int num;
       num = write_port(fd_mon, &sm, sizeof(sm));
-      printf("write wheel speed message to port successfully\n");
+      printf("Wrote wheel speed message to port successfully\n");
    }
 }
 
 void polyxStaticHeadingEventCallback(const polyx_nodea::StaticHeadingEvent::ConstPtr& stmsg)
 {
-
    ROS_INFO(">>> Received a StaticHeadingEvent message:\n");
 
    ROS_INFO("message[%p], Heading=%d", stmsg, stmsg->Heading);
@@ -416,7 +449,6 @@ void polyxStaticHeadingEventCallback(const polyx_nodea::StaticHeadingEvent::Cons
    stm.msg_type = 0x09;
    stm.sub_id = 0x02;
    stm.payload_len = 5;
-
 
    stm.heading = stmsg->Heading;
    stm.ZUPT_RMS = stmsg->ZUPTRMS;
@@ -434,7 +466,6 @@ void polyxStaticHeadingEventCallback(const polyx_nodea::StaticHeadingEvent::Cons
 
 void polyxStaticGeoPoseEventCallback(const polyx_nodea::StaticGeoPoseEvent::ConstPtr& sgmsg)
 {
-
    ROS_INFO(">>> Received a StaticGeoPoseEvent message:\n");
 
    struct staticGeoPosemessage sgm;
@@ -465,11 +496,85 @@ void polyxStaticGeoPoseEventCallback(const polyx_nodea::StaticGeoPoseEvent::Cons
    }
 }
 
+int read_serail(void)
+{
+   int num = 0;
+   struct timeval tout;
+   // default uart read timeout
+   tout.tv_sec = 1;
+   tout.tv_usec = 100 * 1000;
+
+#ifdef MASK_SIG_UART
+   sigset_t mask;
+   sigset_t orig_mask;
+
+   sigemptyset(&mask);
+   sigaddset(&mask, SIGIO);
+   sigaddset(&mask, SIGINT);
+   sigaddset(&mask, SIGABRT);
+
+   if (sigprocmask(SIG_BLOCK, &mask, &orig_mask) < 0) 
+   {
+      perror("sigprocmask");
+      return -1;
+   }
+#endif
+
+   if (fd_mon < 0)
+   {
+      fd_mon = open_mon(my_port.c_str(), my_baud);
+      if (fd_mon < 0) 
+      {
+         perror("open serial port error");
+         usleep(200 * 1000);   // delay 200ms
+      }
+   }
+   else {
+      num = read_port(fd_mon, recvbuf, MaxMsgLen, &tout);
+      if (num < 0) 
+      {
+         if ((errno != EAGAIN) && (errno != EWOULDBLOCK))
+         {
+            perror("read serial port error");
+            // depends on the type or error, do we need re-open the serial port?
+            close(fd_mon);
+            fd_mon = -1;
+         }
+      }
+   }
+
+#ifdef MASK_SIG_UART   
+   if (sigprocmask(SIG_SETMASK, &orig_mask, NULL) < 0)
+   {
+
+   }
+#endif
+
+   return num;
+}
+
 /**
  * This tutorial demonstrates simple sending of messages over the ROS system.
  */
 int main(int argc, char **argv)
 {
+
+   struct sigaction int_act;
+   int_act.sa_handler = intHandler;
+   sigaction(SIGINT, &int_act, NULL);
+
+   struct sigaction abort_act;
+   abort_act.sa_handler = abortHandler;
+   sigaction(SIGABRT, &abort_act, NULL);
+
+   struct sigaction seg_act;
+   seg_act.sa_handler = segHandler;
+   sigaction(SIGILL, &seg_act, NULL);
+
+   struct sigaction io_act;
+   io_act.sa_handler = ioHandler;
+   sigaction(SIGIO, &io_act, NULL);
+
    /**
     * The ros::init() function needs to see argc and argv so that it can perform
     * any ROS arguments and name remapping that were provided at the command line.
@@ -511,12 +616,10 @@ int main(int argc, char **argv)
       * buffer up before throwing some away.
       */
       // %Tag(PUBLISHER)%
+   ros::Publisher chatter_pub = n.advertise<std_msgs::String>("chatter", 1000);
    ros::Publisher kalman_pub = n.advertise<polyx_nodea::Kalman>("polyx_Kalman", 2);
-
    ros::Publisher RawIMU_pub = n.advertise<polyx_nodea::RawIMU>("polyx_rawIMU", 2);
-
    ros::Publisher SolutionStatus_pub = n.advertise<polyx_nodea::SolutionStatus>("polyx_solutionStatus", 2);
-
    ros::Publisher icd_pub = n.advertise<polyx_nodea::Icd>("polyx_ICD", 2);
    ros::Publisher geopose_pub = n.advertise<geographic_msgs::GeoPoseStamped>("current_geopose", 2);
    ros::Publisher pose_pub = n.advertise<geometry_msgs::PoseStamped>("current_pose", 2);
@@ -525,11 +628,8 @@ int main(int argc, char **argv)
    ros::Publisher navfix_pub = n.advertise<sensor_msgs::NavSatFix>("current_navsatfix", 2);
    ros::Publisher imu_pub = n.advertise<sensor_msgs::Imu>("current_imu", 2);
    ros::Publisher EulerAttitude_pub = n.advertise<polyx_nodea::EulerAttitude>("polyx_EulerAttitude", 2);
-
    ros::Publisher timeSync_pub = n.advertise<polyx_nodea::TimeSync>("polyx_timeSync", 2);
-
    ros::Publisher geoid_pub = n.advertise<polyx_nodea::Geoid>("polyx_Geoid", 2);
-
    ros::Publisher CorrectedIMU_pub = n.advertise<polyx_nodea::CorrectedIMU>("polyx_correctedIMU", 2);
 
    struct origin_type myorigin;
@@ -559,49 +659,47 @@ int main(int argc, char **argv)
 
    int bufpos = 0;
    int msglen = 0;
-   uint8_t buf[256];
-   uint8_t recvbuf[256];
+   uint8_t buf[MaxMsgLen];
    int num;
-
    int state = 0;
-   struct timeval tout;
-   // default uart read timeout
-   tout.tv_sec = 1;
-   tout.tv_usec = 100 * 1000;
 
    // get parameters
-   std::string my_port;
-   if (n.getParam("/polyx_port", my_port)) {
+   if (n.getParam("/polyx_port", my_port))
+   {
       ROS_INFO("serial port=%s", my_port.c_str());
    }
    else my_port = MON_PORT;
 
-   int my_baud;
-   if (n.getParam("/polyx_baud", my_baud)) {
+   if (n.getParam("/polyx_baud", my_baud))
+   {
       ROS_INFO("serial baud=%d", my_baud);
    }
    else my_baud = SERIAL_BAUD;
 
    int my_output;
-   if (n.getParam("/polyx_output", my_output)) {
+   if (n.getParam("/polyx_output", my_output))
+   {
       ROS_INFO("output msgs=%d", my_output);
    }
    else my_baud = OUT_ICD | OUT_GEOPOSE | OUT_TWIST | OUT_ACCEL | OUT_NAVSATFIX | OUT_IMU;
 
    std::string my_speedreport;
-   if (n.getParam("/polyx_speedreport", my_speedreport)) {
+   if (n.getParam("/polyx_speedreport", my_speedreport))
+   {
       ROS_INFO("speed report=%s", my_speedreport.c_str());
    }
    else my_speedreport = "polyx_WheelSpeed";
 
    std::string my_staticheading;
-   if (n.getParam("/polyx_staticheading", my_staticheading)) {
+   if (n.getParam("/polyx_staticheading", my_staticheading))
+   {
       ROS_INFO("static heading=%s", my_staticheading.c_str());
    }
    else my_staticheading = "polyx_StaticHeading";
 
    std::string my_staticgeopose;
-   if (n.getParam("/polyx_staticgeopose", my_staticgeopose)) {
+   if (n.getParam("/polyx_staticgeopose", my_staticgeopose))
+   {
       ROS_INFO("static geopose=%s", my_staticgeopose.c_str());
    }
    else my_staticgeopose = "polyx_StaticGeoPose";
@@ -616,31 +714,33 @@ int main(int argc, char **argv)
    */
    // %Tag(SUBSCRIBER)%
    ros::Subscriber wheelSpeed_sub = n.subscribe(my_speedreport, 100, polyxWheelSpeedReportCallback);
-
    ros::Subscriber staticHeading_sub = n.subscribe("polyx_StaticHeading", 100, polyxStaticHeadingEventCallback);
-
    ros::Subscriber staticGeoPose_sub = n.subscribe("polyx_StaticGeoPose", 100, polyxStaticGeoPoseEventCallback);
    // %EndTag(SUBSCRIBER)%
 
-   /**
-    * ros::spin() will enter a loop, pumping callbacks.  With this version, all
-    * callbacks will be called from within this thread (the main one).  ros::spin()
-    * will exit when Ctrl-C is pressed, or the node is shutdown by the master.
-    */
-    // %Tag(SPIN)%
-    //  ros::spin();
-    // %EndTag(SPIN)%
+  /**
+   * ros::spin() will enter a loop, pumping callbacks.  With this version, all
+   * callbacks will be called from within this thread (the main one).  ros::spin()
+   * will exit when Ctrl-C is pressed, or the node is shutdown by the master.
+   */
+   // %Tag(SPIN)%
+   //  ros::spin();
+   // %EndTag(SPIN)%
 
-       /*
-       *  Start the talker part to check the serial port for data
-       */
+   /*
+   *  Start the talker part to check the serial port for data
+   */
    while (ros::ok())
    {
       int new_output;
+
+      if (!keepRunning) break;
+
       // check output msg control changed or not
-      if (n.getParam("/polyx_output", new_output)) 
+      if (n.getParam("/polyx_output", new_output))
       {
-         if (new_output != my_output) {
+         if (new_output != my_output)
+         {
             ROS_INFO("changed otput msgs=%d", new_output);
             my_output = new_output;
          }
@@ -652,32 +752,8 @@ int main(int argc, char **argv)
       // %EndTag(SPINONCE)%
 
       // first check if we need reopen the serial port
-      if (fd_mon < 0)
-      {
-         fd_mon = open_mon(my_port.c_str(), my_baud);
-         
-         if (fd_mon < 0) 
-         {
-            perror("open serial port error");
-            usleep(200 * 1000);   // delay 200ms
-//			   continue;
-            goto loop_ros;
-         }
-      }
-
-      num = read_port(fd_mon, recvbuf, 256, &tout);
-      if (num < 0) 
-      {
-         if ((errno != EAGAIN) && (errno != EWOULDBLOCK))
-         {
-            perror("read serial port error");
-            // depends on the type or error, do we need re-open the serial port?
-            close(fd_mon);
-            fd_mon = -1;
-            goto loop_ros;
-         }
-      }
-      else 
+      num = read_serail();
+      if (num > 0)
       {
          int i;
          for (i = 0; i < num; i++)
@@ -686,7 +762,8 @@ int main(int argc, char **argv)
             switch (state)
             {
             case _SYNC1:
-               if (ch == ICD_SYNC1) {
+               if (ch == ICD_SYNC1)
+               {
                   state++;
                   bufpos = 0;
                   buf[0] = ICD_SYNC1;
@@ -694,7 +771,8 @@ int main(int argc, char **argv)
                }
                break;
             case _SYNC2:
-               if (ch == ICD_SYNC2) {
+               if (ch == ICD_SYNC2)
+               {
                   state++;
                   buf[bufpos] = ch;
                   bufpos++;
@@ -702,14 +780,14 @@ int main(int argc, char **argv)
                else state == 0;
                break;
             case _HEAD:
-               if (bufpos < 6) {
+               if (bufpos < 6)
+               {
                   buf[bufpos++] = ch;
                }
                if (bufpos == 6)
                {
                   msglen = buf[5];
                   msglen = (msglen << 8) + buf[4];
-
                   if (msglen > MaxMsgLen)
                   {
                      printf("Invalid message length length=%d\n", msglen);
@@ -733,35 +811,23 @@ int main(int argc, char **argv)
                      switch (buf[3])
                      {
                      case 1:
-                        printf("found message: Type=%02d, SubId=%02d, length=%03d\n", buf[2], buf[3], msglen);
                         parse_Kalman_message(buf, kalmsg);
-
-                        ROS_INFO("%u, %f", count, kalmsg.SystemTime);
-                        ROS_INFO("%u, %f", count++, kalmsg.GPSTime);
-
                         kalman_pub.publish(kalmsg);
 
                         break;
                      case 8:
-                        printf("found message: Type=%02d, SubId=%02d, length=%03d\n", buf[2], buf[3], msglen);
                         parse_RawIMU_message(buf, imsg);
-                        ROS_INFO("%u, %f", count++, imsg.SystemTime);
                         RawIMU_pub.publish(imsg);
                         break;
                      case 9:
-                        printf("found message: Type=%02d, SubId=%02d, length=%03d\n", buf[2], buf[3], msglen);
                         parse_SolutionStatus_message(buf, smsg);
-                        ROS_INFO("%u, %f", count++, smsg.SystemTime);
                         SolutionStatus_pub.publish(smsg);
                         break;
 
                      case 13:
-                        printf("found message: Type=%02d, SubId=%02d, length=%03d\n", buf[2], buf[3], msglen);
+                        //ROS_INFO("found message: Type=%02d, SubId=%02d, length=%03d\n", buf[2], buf[3], msglen);
                         parse_Icd_message(buf, msg);
-                        // %Tag(ROSCONSOLE)%
-                        ROS_INFO("%u, %d", count++, msg.GpsWeekNumber);
-                        // %EndTag(ROSCONSOLE)%
-                        // %Tag(PUBLISH)%
+                        //ROS_INFO("%u, %f", count++, msg.GpsTimeWeek);
                         if (my_output & OUT_ICD)  icd_pub.publish(msg);
                         if (my_output & OUT_GEOPOSE)
                         {
@@ -795,17 +861,13 @@ int main(int argc, char **argv)
                         }
                         if (my_output & OUT_EULER_ATT)
                         {
-                           if (EulerAttitude(msg, qtemsg)) EulerAttitude_pub.publish(qtemsg);
+                           if (EulerAttitude(msg, qtemsg))
+                           {
+                              EulerAttitude_pub.publish(qtemsg);
+                           }
                         }
                         if (!is_origin_set) {
-
-                           // To set your own fixed origin use SetCustomOrigin() and
-                           // comment out SetOrigin().
-
-                           // SetCustomOrigin(lat, lon, alt, myorigin);
-
                            SetOrigin(msg, myorigin);
-
                            is_origin_set = true;
                         }
 
@@ -819,59 +881,50 @@ int main(int argc, char **argv)
                         break;
 
                      case 16:
-                        printf("found message: Type=%02d, SubId=%02d, length=%03d\n", buf[2], buf[3], msglen);
                         parse_TimeSync_message(buf, tsmsg);
                         timeSync_pub.publish(tsmsg);
                         break;
 
                      case 22:
-                        printf("found message: Type=%02d, SubId=%02d, length=%03d\n", buf[2], buf[3], msglen);
                         parse_Geoid_message(buf, gmsg);
-
-                        ROS_INFO("%u, %f", count, gmsg.GPSTime);
-                        ROS_INFO("%u, %f", count++, gmsg.GeoidHeight);
-
                         geoid_pub.publish(gmsg);
                         break;
 
                      case 23:
-                        printf("found message: Type=%02d, SubId=%02d, length=%03d\n", buf[2], buf[3], msglen);
                         parse_CorrectedIMU_message(buf, cimsg);
-
-                        ROS_INFO("%u, %f", count, cimsg.GpsTimeWeek);
-                        ROS_INFO("%u, %d", count++, cimsg.GpsWeekNumber);
-
                         CorrectedIMU_pub.publish(cimsg);
                         break;
 
                      default:
-                        printf("skip packet[(%02X:%02X) type=%02d, subId=%02d, len=%d].\n", buf[0], buf[1], buf[2], buf[3], msglen);
-                     }
-                  }
+                        break;
+                     } //end switch (buf[3])
+                  } //end if checkMessageType
+               } //end if buffpos
+               if (bufpos >= MaxMsgLen)
+               {
+                  printf("message overflow length length=%d\n", msglen);
+                  state = 0;
+                  continue;
                }
+
                break;
             default:
                state = _SYNC1;
-            } // end switch
+            } // end switch(state)
          } // end for
-      }//	
+      } //end if (num > 0)
 
    loop_ros:
-
       // %Tag(RATE_SLEEP)%
       loop_rate.sleep();
       // %EndTag(RATE_SLEEP)%
-   } // while (ros::ok())
+   }
 
    close(fd_mon);
    fd_mon = -1;
-
 
    ros::waitForShutdown();
 
    return 0;
 }
 // %EndTag(FULLTEXT)%
-
-
-

@@ -136,9 +136,6 @@ namespace eventgenerator {
 
 	    qnode.msg.Flags = 0;
 
-	    if (ui.checkBox_roll->isChecked() && ui.checkBox_GNSS->isChecked())
-	    	qnode.msg.Flags |= 0x03;
-
 	    if (ui.checkBox_roll->isChecked())
 	    	qnode.msg.Flags |= 0x01;
 
