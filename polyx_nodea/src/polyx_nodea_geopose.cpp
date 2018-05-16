@@ -25,12 +25,36 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 #include "ros/ros.h"
- // %EndTag(ROS_HEADER)%
- // %Tag(MSG_HEADER)%
 #include "std_msgs/String.h"
-
 #include "polyx_nodea/StaticGeoPoseEvent.h"
 
+
+bool isNumber (const char *value)
+{
+	int i;
+	long res;
+	char *next;
+
+	res = strtol(value, &next, 10);
+
+	if ((next == value) || ((*next != '\0') && (*next != '.')))
+		return false;
+	else
+		return true;
+}
+
+bool isNegative (const char *value)
+{
+	if (*value == '-') 
+	{
+		if (*(value+1) >= '0' && *(value+1) <= '9')		
+			return true;		
+		else		
+			return false;
+		
+	}
+	return false;
+}
 
 /**
  * This tutorial demonstrates how to send PolyNav static heading event over the ROS system.
@@ -60,7 +84,7 @@ int main(int argc, char **argv)
    ros::NodeHandle n;
    // %EndTag(NODEHANDLE)%
 
-   int count = 0;
+
 
    /**
     * The advertise() function is how you tell ROS that you want to
@@ -84,61 +108,214 @@ int main(int argc, char **argv)
    // %EndTag(PUBLISHER)%
 
    // %Tag(LOOP_RATE)%
-   ros::Rate loop_rate(300);
+   ros::Rate loop_rate(3);
    // %EndTag(LOOP_RATE)%
 
    polyx_nodea::StaticGeoPoseEvent msg;
-
+   int count = 0;
+   bool option;
    double duration = 5.0; // seconds
 
    // Default message for testing
 
-   msg.Latitude = 37.405109067;		// 37.405109067 degrees
-   msg.Longitude = -121.918100758;  // -121.918100758 degrees
-   msg.EllipsoidalHeight = -10.136; // -10.136 m
-   msg.Roll = 0;					// 0 degree
-   msg.Pitch = 0; 					// 0 degree
-   msg.Heading = 3000; 				// 30.00 degrees
-   msg.PositionRMS = 200;			// 2.00 m
-   msg.ZUPTRMS = 10;				// 0.010 m	
-   msg.HeadingRMS = 100;    		// 10 degrees
-   msg.Flags = 0;  					// 0
+   msg.Latitude = 0;		
+   msg.Longitude = 0;  
+   msg.EllipsoidalHeight = 0; 
+   msg.Roll = 0;					
+   msg.Pitch = 0; 					
+   msg.Heading = 0; 				
+   msg.PositionRMS = 0;			
+   msg.ZUPTRMS = 10;					
+   msg.HeadingRMS = 0;    		
+   msg.Flags = 0;  					
 
-
-   // Parse message contents from command line arguments
-   if (argc == 12)
+   option = false;
+	
+   for (int i = 0; i < argc; i++) 
    {
-      
-      msg.Latitude = static_cast<double>(atof(argv[1]));
+   		if (argv[i][0] == '-') 
+   		{
+   			if (isdigit(argv[i][1]))
+   			{
+   				if (!option)
+	   			{
+	   				printf("Please enter a command-line option first\n");
+	   				return -1;
+	   			}
+	   			continue;
+   			} 
+   			else
+   			{
+   				
+   				switch(*(argv[i]+1))
+   				{
+   					case 'p':
+   						for (int j = 1; j <= 4; j++)
+				    	{
+				    		if (i + j >= argc || (!isNumber(argv[i+j]) && !isNegative(argv[i+j])))
+				    		{
+				    			printf("Invalid command line arguments after -p option\n");
+				    			return -1;
+				    		}
+				    	}
+				    	if (i + 5 < argc && (isNegative(argv[i+5]) || *argv[i+5] != '-'))
+		    			{
+		    				printf("too many arguments after -p option\n");
+		    				return -1;
+		    			}
 
-      msg.Longitude = static_cast<double>(atof(argv[2]));
+		    			double lat, lon;
+		    			float posRMS;
+		    			lat = static_cast<double>(atof(argv[i+1]));
+		    			if (lat > 90.00 || lat < -90.00)	
+		    			{
+		    				printf("Invalid Latitude\n");
+		    				return -1;
+		    			}	
+		    			lon = static_cast<double>(atof(argv[i+2]));
+		    			if (lon > 180.00 || lon < -180.00)	
+		    			{
+		    				printf("Invalid Longitude\n");
+		    				return -1;
+		    			}
+		    			posRMS = static_cast<float>(atof(argv[i+4]));
+		    			if (posRMS < 0 || posRMS > 655.35)	
+		    			{
+		    				printf("Invalid PositionRMS\n");
+		    				return -1;
+		    			}
+				    	msg.Latitude = lat;
+						msg.Longitude = lon;
+						msg.EllipsoidalHeight = static_cast<float>(atof(argv[i+3]));
+						msg.PositionRMS = posRMS * 100;
+						option = true;
+						break;
+					case 'z':
+   						if (i + 1 >= argc || (!isNumber(argv[i+1]) && !isNegative(argv[i+1])))
+			    		{
+			    			printf("Invalid command line arguments after -z option\n");
+			    			return -1;
+			    		}
+			    		if (i + 2 < argc && (isNegative(argv[i+2]) || *argv[i+2] != '-'))
+		    			{
+		    				printf("too many arguments after -z option\n");
+		    				return -1;
+		    			}
 
-      msg.EllipsoidalHeight = static_cast<float>(atof(argv[3]));
-
-      // convert deg to 0.01 deg
-      msg.Roll = static_cast<short int>(atof(argv[4]) * 100);
-
-      // convert deg to 0.01 deg
-      msg.Pitch = static_cast<short int>(atof(argv[5]) * 100);
-
-      // convert deg to 0.01 deg
-      msg.Heading = static_cast<short int>(atof(argv[6]) * 100);
-
-      // convert m to cm
-      msg.PositionRMS = static_cast<unsigned short int>(atof(argv[7]) * 100);
-
-      // convert m/s to mm/s
-      msg.ZUPTRMS = static_cast<unsigned short int>(atof(argv[8]) * 1000);
-
-      // convert deg to 0.1 deg
-      msg.HeadingRMS = static_cast<unsigned char>(atof(argv[9]) * 10);
-
-      msg.Flags = static_cast<unsigned char>(atof(argv[10]));
-
-      duration = atof(argv[11]);
-   }
-
-   
+		    			float zuptRMS;
+		    			zuptRMS = static_cast<float>(atof(argv[i+1]));
+		    			if (zuptRMS < 0 || zuptRMS > 65.535)	
+		    			{
+		    				printf("Invalid ZUPT RMS\n");
+		    				return -1;
+		    			}
+				    	msg.ZUPTRMS = zuptRMS * 1000;
+				    	option = true;
+						break;
+					case 'h':
+   						for (int j = 1; j <= 2; j++)
+				    	{
+				    		if (i + j >= argc || (!isNumber(argv[i+j]) && !isNegative(argv[i+j])))
+				    		{
+				    			printf("Invalid command line arguments after -h option\n");
+				    			return -1;
+				    		}
+				    	}
+				    	if (i + 3 < argc && (isNegative(argv[i+3]) || *argv[i+3] != '-'))
+		    			{
+		    				printf("too many arguments after -h option\n");
+		    				return -1;
+		    			}
+		    			short int heading;
+		    			float headingRMS;
+		    			heading = static_cast<short int>(atof(argv[i+1]) * 100);
+		    			if (heading < -18000 || heading > 18000)	
+		    			{
+		    				printf("Invalid heading\n");
+		    				return -1;
+		    			}
+		    			headingRMS = static_cast<float>(atof(argv[i+2]));
+		    			if (headingRMS < 0 || headingRMS > 25.5)	
+		    			{
+		    				printf("Invalid headingRMS\n");
+		    				return -1;
+		    			}
+				    	msg.Heading = heading;
+						msg.HeadingRMS = headingRMS * 10;
+						option = true;
+						break;
+					case 'd':
+   						if (i + 1 >= argc || (!isNumber(argv[i+1]) && !isNegative(argv[i+1])))
+			    		{
+			    			printf("Invalid command line arguments after -d option\n");
+			    			return -1;
+			    		}
+			    		if (i + 2 < argc && (isNegative(argv[i+2]) || *argv[i+2] != '-'))
+		    			{
+		    				printf("too many arguments after -d option\n");
+		    				return -1;
+		    			}
+				    	duration = atof(argv[i+1]);
+				    	option = true;
+						break;
+					case 't':
+   						for (int j = 1; j <= 2; j++)
+				    	{
+				    		if (i + j >= argc || (!isNumber(argv[i+j]) && !isNegative(argv[i+j])))
+				    		{
+				    			printf("Invalid command line arguments after -t option\n");
+				    			return -1;
+				    		}
+				    	}
+				    	if (i + 3 < argc && (isNegative(argv[i+3]) || *argv[i+3] != '-'))
+		    			{
+		    				printf("too many arguments after -t option\n");
+		    				return -1;
+		    			}
+		    			short int roll, pitch;
+		    			roll = static_cast<short int>(atof(argv[i+1]) * 100);
+		    			if (roll < -18000 || roll > 18000)	
+		    			{
+		    				printf("Invalid roll\n");
+		    				return -1;
+		    			}
+		    			pitch = static_cast<short int>(atof(argv[i+2]) * 100);
+		    			if (pitch < -9000 || pitch > 9000)	
+		    			{
+		    				printf("Invalid pitch\n");
+		    				return -1;
+		    			}
+		    			msg.Flags |= 0x01;
+				    	msg.Roll = roll;
+						msg.Pitch = pitch;
+						option = true;
+						break;
+					case 'g':
+   						if (i + 1 < argc && *argv[i+1] != '-')
+			    		{
+			    			printf("Invalid command line arguments after -g option\n");
+			    			return -1;
+			    		}		    	
+				    	msg.Flags |= 0x02;
+				    	option = true;
+						break;
+					default:
+						printf("Invalid command-line option argument\n");
+						return -1;
+   				}
+   			}
+   		}
+   		else if (isdigit(argv[i][0]))
+		{
+			if (!option)
+			{
+				printf("Please enter a command-line option first\n");
+				return -1;
+			}
+			continue;
+		}
+   		
+   }   
 
    double start_time = ros::Time::now().toSec();
 
@@ -157,12 +334,12 @@ int main(int argc, char **argv)
       ROS_INFO("Latitude: %.9lf deg", msg.Latitude);
       ROS_INFO("Longitude: %.9lf deg",  msg.Longitude);
       ROS_INFO("EllipsoidalHeight: %.3lf m",  msg.EllipsoidalHeight);
-      ROS_INFO("Roll: %d deg",  msg.Roll/100);
-      ROS_INFO("Pitch: %d deg",  msg.Pitch/100);
-      ROS_INFO("Heading: %d deg",  msg.Heading/100);
-      ROS_INFO("PositionRMS: %d cm",  msg.PositionRMS);
-      ROS_INFO("ZUPTRMS: %d mm/s",  msg.ZUPTRMS);
-      ROS_INFO("HeadingRMS: %d deg",  msg.HeadingRMS/10);
+      ROS_INFO("Roll: %.2lf deg",  msg.Roll/(float)100);
+      ROS_INFO("Pitch: %.2lf deg",  msg.Pitch/(float)100);
+      ROS_INFO("Heading: %.2lf deg",  msg.Heading/(float)100);
+      ROS_INFO("PositionRMS: %.2lf m",  msg.PositionRMS/(float)100);
+      ROS_INFO("ZUPTRMS: %.3lf m/s",  msg.ZUPTRMS/(float)1000);
+      ROS_INFO("HeadingRMS: %.1lf deg",  msg.HeadingRMS/(float)10);
       ROS_INFO("Roll & Pitch Valid, disable GNSS: %d\n",  msg.Flags);
 
       // %EndTag(ROSCONSOLE)%
@@ -180,7 +357,6 @@ int main(int argc, char **argv)
       loop_rate.sleep();
       // %EndTag(RATE_SLEEP)%
    }
-
    return 0;
 }
 // %EndTag(FULLTEXT)%

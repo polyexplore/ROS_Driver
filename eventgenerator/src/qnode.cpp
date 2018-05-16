@@ -103,7 +103,7 @@ namespace eventgenerator {
 	}
 
 	void QNode::run() {
-		ros::Rate loop_rate(300);
+		ros::Rate loop_rate(3);
 
 		activate = true;
 
