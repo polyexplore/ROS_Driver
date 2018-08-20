@@ -433,8 +433,7 @@ void ConvertToNAD83(
    double&         lon,
    double&         alt)
 {
-   double epoch = 5.0 + week * 7.0 + tow / 86400.0;
-   double epoch = 1980 + epoch / 365.25;
+   double epoch = 1980.0 + (5.0 + week * 7.0 + tow / 86400.0)/365.25;
    double dy = epoch - 2000.0;
    double r[3], r_nad83[3];
    frame_trans_type p;
