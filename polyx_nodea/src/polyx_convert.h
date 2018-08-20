@@ -1,6 +1,12 @@
 #ifndef _POLYX_CONVERT_H
 #define _POLYX_CONVERT_H
 
+typedef enum
+{
+   ITRF08, // Equivalent to WGS84
+   NAD83   // North American Datum 1983 (2011)
+} ref_frame_type;
+
 //-----------------------------------------------------------------------------
 // GPS time to UNIX epoch conversion
 //     315964800 + week * 604800 + GPS Time of week
@@ -60,6 +66,14 @@ void GeodeticToECEF(
    double        r[]);
 
 //-----------------------------------------------------------------------------
+// Convert ECEF coordinates to Geodetic coordinates.
+void ECEFToGeodetic(
+   const double r[],
+   double&      lat,
+   double&      lon,
+   double&      alt);
+
+//-----------------------------------------------------------------------------
 void DCM_ECEFToNED(const double& lat, const double& lon, double Cen[3][3]);
 
 //-----------------------------------------------------------------------------
@@ -88,5 +102,13 @@ void icd_to_PoseStamped(
 bool EulerAttitude(
    polyx_nodea::Icd&           msg, 
    polyx_nodea::EulerAttitude& qtemsg);
+
+//-----------------------------------------------------------------------------
+void ConvertToNAD83(
+   const uint16_t& week,
+   const double&   tow,
+   double&         lat,
+   double&         lon,
+   double&         alt);
 
 #endif // _POLYX_CONVERT_H

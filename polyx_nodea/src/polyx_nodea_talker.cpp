@@ -114,8 +114,8 @@ uint8_t checksum(uint8_t* Buffer, uint16_t len, uint8_t& cka, uint8_t& ckb)
    {
       for (int i = 0; i < len; i++)
       {
-         CK_A = CK_A + Buffer[i];
-         CK_B = CK_B + CK_A;
+         CK_A += Buffer[i];
+         CK_B += CK_A;
       }
       cka = CK_A;
       ckb = CK_B;
@@ -345,7 +345,10 @@ void parse_SolutionStatus_message(uint8_t *buf, polyx_nodea::SolutionStatus &sms
 
 }
 
-void parse_Icd_message(uint8_t *buf, polyx_nodea::Icd &msg)
+void parse_Icd_message(
+   uint8_t*          buf, 
+   polyx_nodea::Icd& msg,
+   ref_frame_type    frame)
 {
    struct icdmessage *im = (struct icdmessage*)buf;
 
@@ -355,6 +358,10 @@ void parse_Icd_message(uint8_t *buf, polyx_nodea::Icd &msg)
    msg.Latitude = im->lat*DEG_TO_RAD;
    msg.Longitude = im->lon*DEG_TO_RAD;
    msg.Altitude = im->alt;
+
+   if (frame == NAD83)
+      ConvertToNAD83(im->week, im->tow, msg.Latitude, msg.Longitude, msg.Altitude);
+
    for (i = 0; i < 3; i++) msg.VelocityNED[i] = im->vel[i];
    for (i = 0; i < 4; i++) msg.Quaternion[i] = im->q_bn[i];
    for (i = 0; i < 3; i++) msg.Acceleration[i] = im->acc[i];
@@ -634,6 +641,7 @@ int main(int argc, char **argv)
 
    struct origin_type myorigin;
    bool is_origin_set = false;
+   ref_frame_type msg13_frame = ITRF08; // Change to NAD83 if requred
 
    // %EndTag(PUBLISHER)%
 
@@ -826,7 +834,7 @@ int main(int argc, char **argv)
 
                      case 13:
                         //ROS_INFO("found message: Type=%02d, SubId=%02d, length=%03d\n", buf[2], buf[3], msglen);
-                        parse_Icd_message(buf, msg);
+                        parse_Icd_message(buf, msg, msg13_frame);
                         //ROS_INFO("%u, %f", count++, msg.GpsTimeWeek);
                         if (my_output & OUT_ICD)  icd_pub.publish(msg);
                         if (my_output & OUT_GEOPOSE)

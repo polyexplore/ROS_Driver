@@ -18,6 +18,14 @@
 #define WGS84_E2   (6.69437999014e-3)
 #define GPS_TIME_BEG 315964800.0
 #define SEC_PER_WEEK 604800.0
+#define MAS_TO_RAD 4.84813681109535940e-09 // milli-arc-sec to rad
+
+typedef struct 
+{
+   double trans[3];
+   double rot[3];
+   double scale;
+} frame_trans_type;
 
 //-----------------------------------------------------------------------------
 void  GpsToEpoch(int gps_week, double gps_tow, ros::Time &tm)
@@ -242,6 +250,57 @@ void GeodeticToECEF(
 }
 
 //-----------------------------------------------------------------------------
+void ECEFToGeodetic(
+   const double r[],
+   double&      lat,
+   double&      lon,
+   double&      alt)
+{
+   double p, delta = 1.0e+3;
+   double slat, clat, Rn, h;
+   bool polar_cap;
+
+   lon = atan2(r[1], r[0]);
+
+   p = sqrt(r[0] * r[0] + r[1] * r[1]);
+   polar_cap = p < 1.0e+5;
+
+   alt = 0.0;
+   lat = atan2(r[2], (1.0 - WGS84_E2)*p);
+
+   while (delta > 0.001)
+   {
+      slat = sin(lat);
+      clat = cos(lat);
+
+      Rn = WGS84_A / sqrt(1.0 - WGS84_E2 * slat * slat);
+
+      if (polar_cap)
+      {
+         double p0 = Rn*clat;
+         double z0 = Rn*(1.0 - WGS84_E2)*slat;
+         double dp = p - p0;
+         double dz = r[2] - z0;
+
+         h = sqrt(dp * dp + dz * dz);
+         if (fabs(r[2]) < fabs(z0))
+            h *= -1.0;
+
+      }
+      else
+      {
+         h = p / clat - Rn;
+      }
+
+      delta = fabs(h - alt);
+      alt = h;
+      lat = atan2(r[2], p*(1.0 - WGS84_E2 * Rn / (Rn + h)));
+
+   } // while (delta > 0.001)
+
+} // ECEFToGeodetic()
+
+//-----------------------------------------------------------------------------
 void DCM_ECEFToNED(const double& lat, const double& lon, double Cen[3][3])
 {
    double clat = cos(lat);
@@ -342,4 +401,54 @@ bool EulerAttitude(polyx_nodea::Icd &msg, polyx_nodea::EulerAttitude &qtemsg)
    {
       return false;
    }
+}
+
+//-----------------------------------------------------------------------------
+void FrameTrans(
+   const double            x_in[],
+   const frame_trans_type& p,
+   double                  x_out[])
+{
+   double T[3][3];
+
+   T[0][0] = 1.0 + p.scale; T[0][1] = -p.rot[2]; T[0][2] = p.rot[1];
+   T[1][0] = p.rot[2]; T[1][1] = T[0][0]; T[1][2] = -p.rot[0];
+   T[2][0] = -p.rot[1]; T[2][1] = p.rot[0]; T[2][2] = T[0][0];
+
+   for (int i = 0; i < 3; ++i)
+   {
+      double sum = 0.0;
+      for (int j = 0; j < 3; ++j)
+         sum += T[i][j] * x_in[j];
+
+      x_out[i] = sum + p.trans[i];
+   }
+}
+
+//-----------------------------------------------------------------------------
+void ConvertToNAD83(
+   const uint16_t& week,
+   const double&   tow,
+   double&         lat,
+   double&         lon,
+   double&         alt)
+{
+   double epoch = 5.0 + week * 7.0 + tow / 86400.0;
+   double epoch = 1980 + epoch / 365.25;
+   double dy = epoch - 2000.0;
+   double r[3], r_nad83[3];
+   frame_trans_type p;
+
+   p.trans[0] = 0.9958 + 0.1e-3 * dy;
+   p.trans[1] = -1.9046 - 0.5e-3 * dy;
+   p.trans[2] = -0.5461 - 3.2e-3 * dy;
+   p.scale = 2.92e-9 + 0.09e-9 * dy;
+   p.rot[0] = (25.9496 + 0.0532 * dy) * MAS_TO_RAD;
+   p.rot[1] = (7.4231 - 0.7423 * dy)  * MAS_TO_RAD;
+   p.rot[2] = (11.6252 - 0.0116 * dy) * MAS_TO_RAD;
+
+   GeodeticToECEF(lat, lon, alt, r);
+   FrameTrans(r, p, r_nad83);
+   ECEFToGeodetic(r_nad83, lat, lon, alt);
+
 }
