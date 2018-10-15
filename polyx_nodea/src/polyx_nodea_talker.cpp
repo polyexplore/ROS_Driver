@@ -63,6 +63,11 @@
 #include <sensor_msgs/NavSatFix.h>
 #include <sensor_msgs/Imu.h>
 
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netdb.h>
+
 #include "polyxdata.h"
 #include "polyx_convert.h"
 
@@ -84,6 +89,10 @@ int fd_mon = -1;
 uint8_t recvbuf[MaxMsgLen];
 std::string my_port;
 int my_baud;
+
+// Ethernet options
+bool eth_enable = false;
+int sockfd = -1;
 
 void intHandler(int) 
 {
@@ -269,6 +278,80 @@ int open_mon(const char *port, int baud)
    return fd;                                                          // successful
 }
 
+int connectEthernet(char* str_server, char* str_port)
+{
+   int portno, n1;
+   int res;
+   long arg;
+   fd_set myset;
+   struct timeval tv;
+   int valopt;
+   socklen_t lon;
+
+   struct sockaddr_in serv_addr;
+   struct hostent *server;
+
+   sockfd = socket(AF_INET, SOCK_STREAM, 0);
+   //printf("sockfd is %d\n", sockfd);
+   if (sockfd < 0)
+   {
+      printf("ERROR opening socket.\n");
+      return -1;
+   }
+
+   // Set non-blocking 
+   arg = fcntl(sockfd, F_GETFL, NULL);
+   arg |= O_NONBLOCK;
+   fcntl(sockfd, F_SETFL, arg);
+
+   server = gethostbyname(str_server);
+   bzero((char *)&serv_addr, sizeof(serv_addr));
+   serv_addr.sin_family = AF_INET;
+
+   portno = atoi(str_port);
+   serv_addr.sin_port = htons(portno);
+
+   bcopy((char *)server->h_addr, (char *)&serv_addr.sin_addr.s_addr, server->h_length);
+
+   res = connect(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr));
+   if (res < 0)
+   {
+      if (errno == EINPROGRESS) 
+      {
+         tv.tv_sec = 10;
+         tv.tv_usec = 0;
+         FD_ZERO(&myset);
+         FD_SET(sockfd, &myset);
+         if (select(sockfd + 1, NULL, &myset, NULL, &tv) > 0) 
+         {
+            lon = sizeof(int);
+            getsockopt(sockfd, SOL_SOCKET, SO_ERROR, (void*)(&valopt), &lon);
+            if (valopt) 
+            {
+               fprintf(stderr, "Error in connection() %d - %s\n", valopt, strerror(valopt));
+               return -2;
+            }
+         }
+         else 
+         {
+            fprintf(stderr, "Timeout or error() %d - %s\n", valopt, strerror(valopt));
+            return -2;
+         }
+      }
+      else 
+      {
+         fprintf(stderr, "Error connecting %d - %s\n", errno, strerror(errno));
+         return -2;
+      }
+   }
+   // Set to blocking mode again... 
+   // arg = fcntl(sockfd, F_GETFL, NULL);
+   // arg &= (~O_NONBLOCK);
+   // fcntl(sockfd, F_SETFL, arg);
+
+   return 0;
+}
+
 #define DEG_TO_RAD (0.017453292519943295)
 
 uint8_t checkMessageType(uint8_t *buf)
@@ -434,11 +517,24 @@ void polyxWheelSpeedReportCallback(const polyx_nodea::WheelSpeedReport::ConstPtr
 
    checksum((uint8_t*)&sm.time, 15, sm.chksumA, sm.chksumB);
 
-   if (fd_mon > 0)
+   if (eth_enable)
    {
-      int num;
-      num = write_port(fd_mon, &sm, sizeof(sm));
-      printf("Wrote wheel speed message to port successfully\n");
+      
+      if (sockfd > 0)
+      {
+         int num;
+         num = write(sockfd, &sm, sizeof(sm));
+         printf("Wrote wheel speed message to Ethernet port successfully\n");
+      }
+   }
+   else 
+   {
+      if (fd_mon > 0)
+      {
+         int num;
+         num = write_port(fd_mon, &sm, sizeof(sm));
+         printf("Wrote wheel speed message to port successfully\n");
+      }
    }
 }
 
@@ -463,11 +559,23 @@ void polyxStaticHeadingEventCallback(const polyx_nodea::StaticHeadingEvent::Cons
 
    checksum((uint8_t*)&stm.heading, 5, stm.chksumA, stm.chksumB);
 
-   if (fd_mon > 0)
+   if (eth_enable)
    {
-      int num;
-      num = write_port(fd_mon, &stm, sizeof(stm));
-      printf("write static heading message to port successfully\n");
+      if (sockfd > 0)
+      {
+         int num;
+         num = write(sockfd, &stm, sizeof(stm));
+         printf("write static heading message to Ethernet port successfully\n");
+      }
+   }
+   else 
+   {
+      if (fd_mon > 0)
+      {
+         int num; 
+         num = write_port(fd_mon, &stm, sizeof(stm));
+         printf("write static heading message to serial port successfully\n");
+      }
    }
 }
 
@@ -495,11 +603,23 @@ void polyxStaticGeoPoseEventCallback(const polyx_nodea::StaticGeoPoseEvent::Cons
 
    checksum((uint8_t*)&sgm.latitude, 32, sgm.chksumA, sgm.chksumB);
 
-   if (fd_mon > 0)
+   if (eth_enable)
    {
-      int num;
-      num = write_port(fd_mon, &sgm, sizeof(sgm));
-      printf("write static geo-pose message to port successfully\n");
+      if (sockfd > 0)
+      {
+         int num;
+         num = write(sockfd, &sgm, sizeof(sgm));
+         printf("write static geo-pose message to Ethernet port successfully\n");
+      }
+   }
+   else 
+   {
+      if (fd_mon > 0)
+      {
+         int num;
+         num = write_port(fd_mon, &sgm, sizeof(sgm));
+         printf("write static geo-pose message to serial port successfully\n");
+      }
    }
 }
 
@@ -642,13 +762,36 @@ int main(int argc, char **argv)
    struct origin_type myorigin;
    bool is_origin_set = false;
    ref_frame_type msg13_frame = ITRF08; // Change to NAD83 if requred
-
+   //ref_frame_type msg13_frame = NAD83; 
+   
    // %EndTag(PUBLISHER)%
 
    // %Tag(LOOP_RATE)%
    ros::Rate loop_rate(200);
    // %EndTag(LOOP_RATE)%
 
+   if (argc == 4)
+   {
+      if (strcmp(argv[1], "-e") == 0)
+      {
+         printf("Ethernet Enabled.\n");
+         eth_enable = true;
+         if (connectEthernet(argv[2], argv[3]) < 0)
+            return -1;
+         
+      }
+      else
+      {
+         printf("You entered a wrong option.\n");
+         return -1;
+      }
+   }
+   else if (argc != 1)
+   {
+      printf("You entered a wrong command.\n");
+      return -1;
+   }
+   
      /**
       * A count of how many messages we have sent. This is used to create
       * a unique string for each message.
@@ -760,7 +903,20 @@ int main(int argc, char **argv)
       // %EndTag(SPINONCE)%
 
       // first check if we need reopen the serial port
-      num = read_serail();
+      if (eth_enable)
+      {
+         if (sockfd > 0)
+         {
+         	//printf("Ethernet Connected\n");
+            num = read(sockfd, recvbuf, MaxMsgLen);
+            //printf("Write socket message to buff\n");
+         }
+      }
+      else
+      {
+         num = read_serail();
+      }
+	  
       if (num > 0)
       {
          int i;
