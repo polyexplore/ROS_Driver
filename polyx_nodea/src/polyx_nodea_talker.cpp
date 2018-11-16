@@ -832,7 +832,7 @@ int main(int argc, char **argv)
    {
       ROS_INFO("output msgs=%d", my_output);
    }
-   else my_baud = OUT_ICD | OUT_GEOPOSE | OUT_TWIST | OUT_ACCEL | OUT_NAVSATFIX | OUT_IMU;
+   else my_output = OUT_ICD | OUT_GEOPOSE | OUT_TWIST | OUT_ACCEL | OUT_NAVSATFIX | OUT_IMU;
 
    std::string my_speedreport;
    if (n.getParam("/polyx_speedreport", my_speedreport))
