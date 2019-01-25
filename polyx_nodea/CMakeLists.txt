@@ -61,6 +61,7 @@ find_package(catkin REQUIRED COMPONENTS
    SolutionStatus.msg
    StaticGeoPoseEvent.msg
    TimeSync.msg
+   LeapSeconds.msg
  )
 
 ## Generate services in the 'srv' folder

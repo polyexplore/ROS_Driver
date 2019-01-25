@@ -173,7 +173,21 @@ struct   __attribute__((packed)) correctedImuMessage
    unsigned char chksumB;
 };
 
+struct   __attribute__((packed)) leapSecondsmessage
+{
+   unsigned char sync1;
+   unsigned char sync2;
+   unsigned char msg_type;
+   unsigned char sub_id;
+   unsigned short int payload_len;
 
+   // --- payload data
+   unsigned char   leapSeconds;      // offset between the GPS time and the UTC (seconds)
+
+// ----- end payload    
+   unsigned char chksumA;
+   unsigned char chksumB;
+};
 
 struct   __attribute__((packed)) speedmessage
 {

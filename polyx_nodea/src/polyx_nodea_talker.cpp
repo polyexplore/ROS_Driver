@@ -49,6 +49,7 @@
 #include "polyx_nodea/TimeSync.h"
 #include "polyx_nodea/Geoid.h"
 #include "polyx_nodea/CorrectedIMU.h"
+#include "polyx_nodea/LeapSeconds.h"
 #include "polyx_nodea/WheelSpeedReport.h"
 #include "polyx_nodea/StaticHeadingEvent.h"
 #include "polyx_nodea/StaticGeoPoseEvent.h"
@@ -497,6 +498,13 @@ void parse_CorrectedIMU_message(uint8_t *buf, polyx_nodea::CorrectedIMU &imsg)
    imsg.GpsWeekNumber = im->week;
 }
 
+void parse_LeapSeconds_message(uint8_t *buf, polyx_nodea::LeapSeconds &lsmsg)
+{
+   struct leapSecondsmessage *lsm = (struct leapSecondsmessage*)buf;
+
+   lsmsg.LeapSeconds = lsm->leapSeconds;
+}
+
 // %Tag(CALLBACK)%
 void polyxWheelSpeedReportCallback(const polyx_nodea::WheelSpeedReport::ConstPtr& msg)
 {
@@ -758,6 +766,7 @@ int main(int argc, char **argv)
    ros::Publisher timeSync_pub = n.advertise<polyx_nodea::TimeSync>("polyx_timeSync", 2);
    ros::Publisher geoid_pub = n.advertise<polyx_nodea::Geoid>("polyx_Geoid", 2);
    ros::Publisher CorrectedIMU_pub = n.advertise<polyx_nodea::CorrectedIMU>("polyx_correctedIMU", 2);
+   ros::Publisher leapSeconds_pub = n.advertise<polyx_nodea::LeapSeconds>("polyx_leapSeconds", 2);
 
    struct origin_type myorigin;
    bool is_origin_set = false;
@@ -807,6 +816,7 @@ int main(int argc, char **argv)
    polyx_nodea::TimeSync tsmsg;
    polyx_nodea::Geoid gmsg;
    polyx_nodea::CorrectedIMU cimsg;
+   polyx_nodea::LeapSeconds lsmsg;
 
    int bufpos = 0;
    int msglen = 0;
@@ -1058,6 +1068,11 @@ int main(int argc, char **argv)
                         parse_CorrectedIMU_message(buf, cimsg);
                         CorrectedIMU_pub.publish(cimsg);
                         break;
+						
+					 case 24:
+						parse_LeapSeconds_message(buf, lsmsg);
+						leapSeconds_pub.publish(lsmsg);
+						break;
 
                      default:
                         break;
