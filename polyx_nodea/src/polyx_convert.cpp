@@ -375,6 +375,7 @@ void icd_to_PoseStamped(
 bool EulerAttitude(polyx_nodea::Icd &msg, polyx_nodea::EulerAttitude &qtemsg)
 {
 
+
    float q0 = msg.Quaternion[0] * msg.Quaternion[0];
    float q1 = msg.Quaternion[1] * msg.Quaternion[1];
    float q2 = msg.Quaternion[2] * msg.Quaternion[2];
@@ -384,7 +385,7 @@ bool EulerAttitude(polyx_nodea::Icd &msg, polyx_nodea::EulerAttitude &qtemsg)
    float C31 = 2.0f * (msg.Quaternion[1] * msg.Quaternion[3] - msg.Quaternion[0] * msg.Quaternion[2]);
    float C32 = 2.0f * (msg.Quaternion[2] * msg.Quaternion[3] + msg.Quaternion[0] * msg.Quaternion[1]);
    float C33 = q0 - q1 - q2 + q3;
-
+   qtemsg.GpsTimeWeek = msg.GpsTimeWeek;
    qtemsg.pitch = atan(-C31 / sqrt(C32 * C32 + C33 * C33));
 
    if (fabsf(C31) < 0.999f)

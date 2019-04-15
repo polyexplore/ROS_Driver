@@ -79,9 +79,9 @@ struct   __attribute__((packed)) rawImuMessage
 
    // --- payload data
    double systemTime;             // System time(seconds)
-   unsigned short int week;       // GPS week number
    unsigned char NumberOfSVs;     // Number of SVs used
    unsigned char ProcessingMode;  // processing mode
+   unsigned short int week;       // GPS week number
    double   GPSTimeWeek;          // GPS time of week (seconds)
    double   PositionRMS[3];       // Position RMS(NED) m
    double   VelocityRMS[3];       // Velocity RMS(NED) m/s
