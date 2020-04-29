@@ -13,11 +13,10 @@
 #define OUT_ALL     0x7FFFFFFF
 
 typedef enum {
-    _SYNC1 = 0,
-    _SYNC2,
+    _SYNC = 0,
     _HEAD,
     _MSG
- }DecodeStatus;
+ } DecodeStatus;
  
 struct   __attribute__((packed)) kalmanmessage
 {

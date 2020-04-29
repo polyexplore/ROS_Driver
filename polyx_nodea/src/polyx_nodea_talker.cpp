@@ -53,6 +53,7 @@
 #include "polyx_nodea/WheelSpeedReport.h"
 #include "polyx_nodea/StaticHeadingEvent.h"
 #include "polyx_nodea/StaticGeoPoseEvent.h"
+
  // %EndTag(MSG_HEADER)%
 #include "std_msgs/String.h"
 #include <geometry_msgs/PoseStamped.h>
@@ -71,6 +72,7 @@
 
 #include "polyxdata.h"
 #include "polyx_convert.h"
+#include "polx_nmea.h"
 
 #define MON_PORT "/dev/ttyUSB1"
 #define ICD_SYNC1 0xAF
@@ -134,7 +136,6 @@ uint8_t checksum(uint8_t* Buffer, uint16_t len, uint8_t& cka, uint8_t& ckb)
    else
       return 0;
 }
-
 
 int write_port(int fd, void *buf, int len)
 {
@@ -767,6 +768,7 @@ int main(int argc, char **argv)
    ros::Publisher geoid_pub = n.advertise<polyx_nodea::Geoid>("polyx_Geoid", 2);
    ros::Publisher CorrectedIMU_pub = n.advertise<polyx_nodea::CorrectedIMU>("polyx_correctedIMU", 2);
    ros::Publisher leapSeconds_pub = n.advertise<polyx_nodea::LeapSeconds>("polyx_leapSeconds", 2);
+   ros::Publisher nmeaGGA_pub = n.advertise<polyx_nodea::nmeaGGA>("polyx_nmeaGGA", 2);
 
    struct origin_type myorigin;
    bool is_origin_set = false;
@@ -935,30 +937,36 @@ int main(int argc, char **argv)
             uint8_t ch = recvbuf[i];
             switch (state)
             {
-            case _SYNC1:
-               if (ch == ICD_SYNC1)
+            case _SYNC:
+               buf[0] = buf[1];
+               buf[1] = ch;
+
+               if ((buf[0] == ICD_SYNC1 && buf[1] == ICD_SYNC2)
+                  || (buf[0] == '$' && buf[1] == 'G'))
                {
-                  state++;
-                  bufpos = 0;
-                  buf[0] = ICD_SYNC1;
-                  bufpos++;
+                  state = _HEAD;
+                  bufpos = 2;
                }
+
                break;
-            case _SYNC2:
-               if (ch == ICD_SYNC2)
-               {
-                  state++;
-                  buf[bufpos] = ch;
-                  bufpos++;
-               }
-               else state == 0;
-               break;
+
             case _HEAD:
-               if (bufpos < 6)
+
+               buf[bufpos++] = ch;
+
+               if (buf[0] == '$')
                {
-                  buf[bufpos++] = ch;
+                  if (ch < 32 || 126 < ch || bufpos >= MaxMsgLen)
+                  {
+                     state = 0;
+                  }
+                  else if (input == '*')
+                  {
+                     state = _MSG;
+                     msglen = bufpos + 2;
+                  }
                }
-               if (bufpos == 6)
+               else if (bufpos == 6)
                {
                   msglen = buf[5];
                   msglen = (msglen << 8) + buf[4];
@@ -973,11 +981,35 @@ int main(int argc, char **argv)
                }
                break;
             case _MSG:
-               if (bufpos < msglen + 8)   // payloadlen + checksum
+
+               buf[bufpos++] = ch;
+
+               if (buf[0] == '$')
                {
-                  buf[bufpos++] = ch;
+                  if (bufpos >= msglen)
+                  {
+                     state = _SYNC;
+                     buf[bufpos] = '\0';
+
+                     if (nmeaChecksum((char*)buf))
+                     {
+                        if (strncmp((char*)&buf[3], "GGA,", 4) == 0)
+                        {
+                           polyx_nodea::nmeaGGA gga;
+
+                           parseNmeaGGA((char*)buf, gga);
+                           gga.latitude *= DEG_TO_RAD;
+                           gga.longitude *= DEG_TO_RAD;
+                           
+                           nmeaGGA_pub.publish(gga);
+                        }
+                     }
+                     else
+                        printf("NMEA chsecksum failure.\n");
+
+                  }
                }
-               if (bufpos == (msglen + 8))  // got full message
+               else if (bufpos == (msglen + 8))  // got full message
                {
                   state = 0;
                   if (checkMessageType(buf) == ICD_TYPE)
@@ -1088,7 +1120,7 @@ int main(int argc, char **argv)
 
                break;
             default:
-               state = _SYNC1;
+               state = _SYNC;
             } // end switch(state)
          } // end for
       } //end if (num > 0)
