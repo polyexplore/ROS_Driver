@@ -72,7 +72,7 @@
 
 #include "polyxdata.h"
 #include "polyx_convert.h"
-#include "polx_nmea.h"
+#include "polyx_nmea.h"
 
 #define MON_PORT "/dev/ttyUSB1"
 #define ICD_SYNC1 0xAF
@@ -960,7 +960,7 @@ int main(int argc, char **argv)
                   {
                      state = 0;
                   }
-                  else if (input == '*')
+                  else if (ch == '*')
                   {
                      state = _MSG;
                      msglen = bufpos + 2;
@@ -997,7 +997,7 @@ int main(int argc, char **argv)
                         {
                            polyx_nodea::nmeaGGA gga;
 
-                           parseNmeaGGA((char*)buf, gga);
+                           parseNmeaGga((char*)buf, gga);
                            gga.latitude *= DEG_TO_RAD;
                            gga.longitude *= DEG_TO_RAD;
                            

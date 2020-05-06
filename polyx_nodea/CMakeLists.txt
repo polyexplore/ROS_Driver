@@ -62,6 +62,7 @@ find_package(catkin REQUIRED COMPONENTS
    StaticGeoPoseEvent.msg
    TimeSync.msg
    LeapSeconds.msg
+   nmeaGGA.msg
  )
 
 ## Generate services in the 'srv' folder
@@ -145,7 +146,7 @@ include_directories(
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
 # add_executable(${PROJECT_NAME}_node src/polyx_nodea_node.cpp)
-add_executable(${PROJECT_NAME}_talker src/polyx_nodea_talker.cpp src/polyx_convert.cpp)
+add_executable(${PROJECT_NAME}_talker src/polyx_nodea_talker.cpp src/polyx_convert.cpp src/polyx_nmea.cpp)
 add_executable(${PROJECT_NAME}_listener src/polyx_nodea_listener.cpp)
 add_executable(${PROJECT_NAME}_speed src/polyx_nodea_speed.cpp)
 add_executable(${PROJECT_NAME}_heading src/polyx_nodea_heading.cpp)
