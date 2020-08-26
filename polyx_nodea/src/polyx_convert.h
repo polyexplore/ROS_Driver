@@ -110,5 +110,9 @@ void ConvertToNAD83(
    double&         lat,
    double&         lon,
    double&         alt);
+   
+//-----------------------------------------------------------------------------
+void Decode(const uint8_t* p, double& d);
+void Decode(const uint8_t* p, int32_t& i32);
 
 #endif // _POLYX_CONVERT_H

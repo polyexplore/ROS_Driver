@@ -452,3 +452,23 @@ void ConvertToNAD83(
    ECEFToGeodetic(r_nad83, lat, lon, alt);
 
 }
+
+//-----------------------------------------------------------------------------
+void Decode(const uint8_t* p, double& d)
+{
+   int64_t* i64 = (int64_t*)&d;
+
+   *i64 = p[7];
+   for (int i = 6; i >= 0; --i)
+      *i64 = ((*i64) << 8) | p[i];
+
+}
+
+//-----------------------------------------------------------------------------
+void Decode(const uint8_t* p, int32_t& i32)
+{
+   i32 = p[3];
+
+   for (int i = 2; i >= 0; --i)
+      i32 = (i32 << 8) | p[i];
+}	

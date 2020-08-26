@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017, Polynesian Exploration Inc.
+ * Copyright (C) 2017, PolyExplore Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -53,6 +53,7 @@
 #include "polyx_nodea/WheelSpeedReport.h"
 #include "polyx_nodea/StaticHeadingEvent.h"
 #include "polyx_nodea/StaticGeoPoseEvent.h"
+#include "polyx_nodea/dmi.h"
 
  // %EndTag(MSG_HEADER)%
 #include "std_msgs/String.h"
@@ -506,6 +507,13 @@ void parse_LeapSeconds_message(uint8_t *buf, polyx_nodea::LeapSeconds &lsmsg)
    lsmsg.LeapSeconds = lsm->leapSeconds;
 }
 
+void parse_dmi_message(uint8_t *buf, polyx_nodea::dmi &dmi)
+{
+   Decode(&buf[6], dmi.system_time);
+   Decode(&buf[14], dmi.pulse_count);
+   dmi.id = buf[18];
+}
+
 // %Tag(CALLBACK)%
 void polyxWheelSpeedReportCallback(const polyx_nodea::WheelSpeedReport::ConstPtr& msg)
 {
@@ -769,6 +777,7 @@ int main(int argc, char **argv)
    ros::Publisher CorrectedIMU_pub = n.advertise<polyx_nodea::CorrectedIMU>("polyx_correctedIMU", 2);
    ros::Publisher leapSeconds_pub = n.advertise<polyx_nodea::LeapSeconds>("polyx_leapSeconds", 2);
    ros::Publisher nmeaGGA_pub = n.advertise<polyx_nodea::nmeaGGA>("polyx_nmeaGGA", 2);
+   ros::Publisher dmi_pub = n.advertise<polyx_nodea::dmi>("polyx_dmi", 2);
 
    struct origin_type myorigin;
    bool is_origin_set = false;
@@ -819,6 +828,7 @@ int main(int argc, char **argv)
    polyx_nodea::Geoid gmsg;
    polyx_nodea::CorrectedIMU cimsg;
    polyx_nodea::LeapSeconds lsmsg;
+   polyx_nodea::dmi dmi_msg;
 
    int bufpos = 0;
    int msglen = 0;
@@ -1028,6 +1038,11 @@ int main(int argc, char **argv)
                      case 9:
                         parse_SolutionStatus_message(buf, smsg);
                         SolutionStatus_pub.publish(smsg);
+                        break;
+						
+                     case 12: // DMI message
+                        parse_dmi_message(buf, dmi_msg);
+                        dmi_pub.publish(dmi_msg);
                         break;
 
                      case 13:
