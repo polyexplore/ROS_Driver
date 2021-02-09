@@ -98,6 +98,7 @@ int my_baud;
 bool eth_enable = false;
 int sockfd = -1;
 
+int LEAP_SECONDS = -1;
 int INI_GPS_WEEK_NUM = -1;
 
 void intHandler(int) 
@@ -464,9 +465,9 @@ void parse_Icd_message(
    msg.GpsWeekNumber = im->week;
    msg.Alignment = im->align_mode;
 
-   if (msg.GpsWeekNumber > 0)
+   if (msg.GpsWeekNumber > 0 && LEAP_SECONDS > 0)
    {
-      GpsToEpoch(msg.GpsWeekNumber, msg.GpsTimeWeek, msg.header.stamp);
+      GpsToEpoch(msg.GpsWeekNumber, msg.GpsTimeWeek - LEAP_SECONDS, msg.header.stamp);
 	  if (INI_GPS_WEEK_NUM < 0)
 	     INI_GPS_WEEK_NUM = msg.GpsWeekNumber;
    }
@@ -478,6 +479,7 @@ void parse_TimeSync_message(uint8_t *buf, polyx_nodea::TimeSync &tsmsg)
 {
    struct timeSyncmessage *tsm = (struct timeSyncmessage*)buf;
 
+   tsmsg.header.stamp = ros::Time::now();
    tsmsg.SystemComputerTime = tsm->systemComTime;
    tsmsg.BiasToGPSTime = tsm->biasToGPSTime;
 
@@ -526,9 +528,9 @@ void parse_dmi_message(
    Decode(&buf[14], dmi.pulse_count);
    dmi.id = buf[18];
 
-   if (ts.SystemComputerTime > 0 && INI_GPS_WEEK_NUM > 0)
+   if (ts.SystemComputerTime > 0 && INI_GPS_WEEK_NUM > 0 && LEAP_SECONDS > 0)
    {
-	   float64 t_gps = dmi.system_time - ts.BiasToGPSTime;
+	   float64 t_gps = dmi.system_time - ts.BiasToGPSTime - LEAP_SECONDS;
 	   GpsToEpoch(INI_GPS_WEEK_NUM, t_gps, dmi.header.stamp);
    }
 }
@@ -1137,6 +1139,7 @@ int main(int argc, char **argv)
 						
 					 case 24:
 						parse_LeapSeconds_message(buf, lsmsg);
+						LEAP_SECONDS = lsmsg.LeapSeconds;
 						leapSeconds_pub.publish(lsmsg);
 						break;
 
