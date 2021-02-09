@@ -98,6 +98,8 @@ int my_baud;
 bool eth_enable = false;
 int sockfd = -1;
 
+int INI_GPS_WEEK_NUM = -1;
+
 void intHandler(int) 
 {
    keepRunning = false;
@@ -428,6 +430,10 @@ void parse_SolutionStatus_message(uint8_t *buf, polyx_nodea::SolutionStatus &sms
    for (i = 0; i < 3; i++) smsg.PositionRMS[i] = im->PositionRMS[i];
    for (i = 0; i < 3; i++) smsg.VelocityRMS[i] = im->VelocityRMS[i];
    for (i = 0; i < 3; i++) smsg.AttitudeRMS[i] = im->AttitudeRMS[i];
+   
+   // Initial GPS week number
+   if (INI_GPS_WEEK_NUM < 0 && smsg.GpsWeekNumber > 0)
+      INI_GPS_WEEK_NUM = smsg.GpsWeekNumber;
 
 }
 
@@ -459,7 +465,11 @@ void parse_Icd_message(
    msg.Alignment = im->align_mode;
 
    if (msg.GpsWeekNumber > 0)
+   {
       GpsToEpoch(msg.GpsWeekNumber, msg.GpsTimeWeek, msg.header.stamp);
+	  if (INI_GPS_WEEK_NUM < 0)
+	     INI_GPS_WEEK_NUM = msg.GpsWeekNumber;
+   }
    else
       msg.header.stamp = ros::Time::now();
 }
@@ -507,11 +517,20 @@ void parse_LeapSeconds_message(uint8_t *buf, polyx_nodea::LeapSeconds &lsmsg)
    lsmsg.LeapSeconds = lsm->leapSeconds;
 }
 
-void parse_dmi_message(uint8_t *buf, polyx_nodea::dmi &dmi)
+void parse_dmi_message(
+   uint8_t *buf,
+   polyx_nodea::TimeSync& ts,   
+   polyx_nodea::dmi &dmi)
 {
    Decode(&buf[6], dmi.system_time);
    Decode(&buf[14], dmi.pulse_count);
    dmi.id = buf[18];
+
+   if (ts.SystemComputerTime > 0 && INI_GPS_WEEK_NUM > 0)
+   {
+	   float64 t_gps = dmi.system_time - ts.BiasToGPSTime;
+	   GpsToEpoch(INI_GPS_WEEK_NUM, t_gps, dmi.header.stamp);
+   }
 }
 
 // %Tag(CALLBACK)%
@@ -824,7 +843,7 @@ int main(int argc, char **argv)
    polyx_nodea::SolutionStatus smsg;
    polyx_nodea::Icd msg;
    polyx_nodea::EulerAttitude qtemsg;
-   polyx_nodea::TimeSync tsmsg;
+   polyx_nodea::TimeSync tsmsg = {0};
    polyx_nodea::Geoid gmsg;
    polyx_nodea::CorrectedIMU cimsg;
    polyx_nodea::LeapSeconds lsmsg;
@@ -1041,7 +1060,7 @@ int main(int argc, char **argv)
                         break;
 						
                      case 12: // DMI message
-                        parse_dmi_message(buf, dmi_msg);
+                        parse_dmi_message(buf, tsmsg, dmi_msg);
                         dmi_pub.publish(dmi_msg);
                         break;
 
