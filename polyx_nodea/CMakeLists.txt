@@ -64,6 +64,7 @@ find_package(catkin REQUIRED COMPONENTS
    LeapSeconds.msg
    nmeaGGA.msg
    dmi.msg
+   GnssHmr.msg
  )
 
 ## Generate services in the 'srv' folder

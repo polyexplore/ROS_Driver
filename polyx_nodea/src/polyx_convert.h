@@ -110,9 +110,14 @@ void ConvertToNAD83(
    double&         lat,
    double&         lon,
    double&         alt);
-   
+
 //-----------------------------------------------------------------------------
-void Decode(const uint8_t* p, double& d);
-void Decode(const uint8_t* p, int32_t& i32);
+// Decoding funtions for little-endian data
+void Decode(const uint8_t *p, double &d);
+void Decode(const uint8_t *p, int32_t &i32);
+void Decode(const uint8_t *p, uint32_t &u32);
+void Decode(const uint8_t *p, float &f);
+void Decode(const uint8_t *p, int16_t &i16);
+void Decode(const uint8_t *p, uint16_t &u16);
 
 #endif // _POLYX_CONVERT_H
