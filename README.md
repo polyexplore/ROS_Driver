@@ -96,7 +96,7 @@ roslaunch polyx_nodea polyx_node_talker.launch
   * local_ip is the IP address of local TCP/UDP server.
   * local_port is the port of local TCP/UDP server.
   * use_tcp is for switching between TCP and UDP.
-  * rtcm_data_topic is the ROS2 topic on which the user publishes RTCM binary data.
+  * rtcm_data_topic is the ROS topic on which the user publishes RTCM binary data.
 3. Open a terminal and type the following commands to launch both talker node and RTCM forwarder node (roscore will be automatically started):
 ```
 cd catkin_ws
