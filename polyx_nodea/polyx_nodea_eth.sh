@@ -15,8 +15,8 @@ else
    if rospack list | grep "polyx_nodea"
    then
      rosparam set polyx_speedreport ${SPEED_TOPIC}
-	 rosparam set polyx_staticheading ${STATIC_HEADING}
-	 rosparam set polyx_staticgeopose ${STATIC_GEOPOSE}
+	  rosparam set polyx_staticheading ${STATIC_HEADING}
+	  rosparam set polyx_staticgeopose ${STATIC_GEOPOSE}
      rosparam set polyx_output ${OUTPUT_MSG}
      rosrun polyx_nodea polyx_nodea_talker -e $1 $2
    else
