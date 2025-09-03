@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<launch>
+  <env name="ROSCONSOLE_FORMAT" value="[${severity}] [${time}] [${node}]: ${message}"/>
+
+  <arg name="polynav_ip" default="192.168.130.97"/>
+  <arg name="polynav_port" default="8888"/>
+  <param name="polyx_speedreport" value="polyx_WheelSpeed"/>
+  <param name="polyx_staticheading" value="polyx_StaticHeading"/>
+  <param name="polyx_staticgeopose" value="polyx_StaticGeoPose"/>
+  <param name="polyx_output" value="255"/>  
+  <node pkg="polyx_nodea" type="polyx_nodea_talker" name="polyx_nodea_talker" args="-e $(arg polynav_ip) $(arg polynav_port)" output="screen"/>
+
+  <param name="local_ip" value="0.0.0.0"/>
+  <param name="use_tcp" value="true" type="bool"/>
+  <param name="local_port" value="8888" type="str"/>
+  <param name="rtcm_data_topic" value="rtcm"/>  
+  <node pkg="polyx_nodea" type="polyx_nodea_rtcm_forwarder" name="polyx_nodea_rtcm_forwarder" output="screen"/>
+</launch>

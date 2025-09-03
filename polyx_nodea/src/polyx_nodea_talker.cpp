@@ -54,8 +54,9 @@
 #include "polyx_nodea/StaticHeadingEvent.h"
 #include "polyx_nodea/StaticGeoPoseEvent.h"
 #include "polyx_nodea/dmi.h"
+#include "polyx_nodea/GnssHmr.h"
 
- // %EndTag(MSG_HEADER)%
+// %EndTag(MSG_HEADER)%
 #include "std_msgs/String.h"
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/TwistStamped.h>
@@ -530,9 +531,30 @@ void parse_dmi_message(
 
    if (ts.SystemComputerTime > 0 && INI_GPS_WEEK_NUM > 0 && LEAP_SECONDS > 0)
    {
-	   float64 t_gps = dmi.system_time - ts.BiasToGPSTime - LEAP_SECONDS;
+	   double t_gps = dmi.system_time - ts.BiasToGPSTime - LEAP_SECONDS;
 	   GpsToEpoch(INI_GPS_WEEK_NUM, t_gps, dmi.header.stamp);
    }
+}
+
+void parse_GnssHmr_message(uint8_t *buf, polyx_nodea::GnssHmr &ghmsg)
+{
+   int p = 6;
+   uint32_t msow = 0;
+   Decode(&buf[p], msow);
+   p += 4; // uint32 [ms]
+   Decode(&buf[p], ghmsg.gps_week_number);
+   p += 2; // uint16
+   Decode(&buf[p], ghmsg.heading_deg);
+   p += 4; // float [deg]
+   Decode(&buf[p], ghmsg.heading_std_deg);
+   p += 4; // float [deg]
+   Decode(&buf[p], ghmsg.baseline_length);
+   p += 4; // float [deg]
+   Decode(&buf[p], ghmsg.pitch_deg);
+   p += 4; // float [deg]
+   Decode(&buf[p], ghmsg.pitch_std_deg);
+   p += 4; // float [deg]
+   ghmsg.gps_time_of_week = msow * 0.001;
 }
 
 // %Tag(CALLBACK)%
@@ -799,6 +821,8 @@ int main(int argc, char **argv)
    ros::Publisher leapSeconds_pub = n.advertise<polyx_nodea::LeapSeconds>("polyx_leapSeconds", 2);
    ros::Publisher nmeaGGA_pub = n.advertise<polyx_nodea::nmeaGGA>("polyx_nmeaGGA", 2);
    ros::Publisher dmi_pub = n.advertise<polyx_nodea::dmi>("polyx_dmi", 2);
+   ros::Publisher gnssHmr_pub = n.advertise<polyx_nodea::GnssHmr>("polyx_gnssHmr", 2);
+   ros::Publisher nmeaGGA2_pub = n.advertise<polyx_nodea::nmeaGGA>("polyx_nmeaGGA2", 2);
 
    struct origin_type myorigin;
    bool is_origin_set = false;
@@ -840,16 +864,17 @@ int main(int argc, char **argv)
       // %Tag(ROS_OK)%
    int count = 0;
 
-   polyx_nodea::Kalman kalmsg;
-   polyx_nodea::RawIMU imsg;
-   polyx_nodea::SolutionStatus smsg;
-   polyx_nodea::Icd msg;
-   polyx_nodea::EulerAttitude qtemsg;
-   polyx_nodea::TimeSync tsmsg = {0};
-   polyx_nodea::Geoid gmsg;
-   polyx_nodea::CorrectedIMU cimsg;
-   polyx_nodea::LeapSeconds lsmsg;
-   polyx_nodea::dmi dmi_msg;
+   polyx_nodea::Kalman kalmsg = {};
+   polyx_nodea::RawIMU imsg = {};
+   polyx_nodea::SolutionStatus smsg = {};
+   polyx_nodea::Icd msg = {};
+   polyx_nodea::EulerAttitude qtemsg = {};
+   polyx_nodea::TimeSync tsmsg = {};
+   polyx_nodea::Geoid gmsg = {};
+   polyx_nodea::CorrectedIMU cimsg = {};
+   polyx_nodea::LeapSeconds lsmsg = {};
+   polyx_nodea::dmi dmi_msg = {};
+   polyx_nodea::GnssHmr ghmsg = {};
 
    int bufpos = 0;
    int msglen = 0;
@@ -1034,6 +1059,16 @@ int main(int argc, char **argv)
                            
                            nmeaGGA_pub.publish(gga);
                         }
+                        else if (strncmp((char *)&buf[3], "GGA2,", 5) == 0)
+                        {
+                           polyx_nodea::nmeaGGA gga2;
+
+                           parseNmeaGga((char *)buf, gga2);
+                           gga2.latitude *= DEG_TO_RAD;
+                           gga2.longitude *= DEG_TO_RAD;
+
+                           nmeaGGA2_pub.publish(gga2);
+                        }
                      }
                      else
                         printf("NMEA chsecksum failure.\n");
@@ -1120,6 +1155,11 @@ int main(int argc, char **argv)
                            pose_pub.publish(pmsg);
                         }
 
+                        break;
+
+                     case 14:
+                        parse_GnssHmr_message(buf, ghmsg);
+                        gnssHmr_pub.publish(ghmsg);
                         break;
 
                      case 16:

@@ -454,21 +454,64 @@ void ConvertToNAD83(
 }
 
 //-----------------------------------------------------------------------------
-void Decode(const uint8_t* p, double& d)
+// Decode 8-byte data
+template <class T>
+void Decode8(const uint8_t *p, T &out)
 {
-   int64_t* i64 = (int64_t*)&d;
+   int64_t *i64 = (int64_t *)&out;
 
    *i64 = p[7];
    for (int i = 6; i >= 0; --i)
       *i64 = ((*i64) << 8) | p[i];
+}
 
+void Decode(const uint8_t *p, double &d)
+{
+   Decode8(p, d);
 }
 
 //-----------------------------------------------------------------------------
-void Decode(const uint8_t* p, int32_t& i32)
+// Decode 4-byte data
+template <class T>
+void Decode4(const uint8_t *p, T &out)
 {
-   i32 = p[3];
+   int32_t *i32 = (int32_t *)&out;
+
+   *i32 = p[3];
 
    for (int i = 2; i >= 0; --i)
-      i32 = (i32 << 8) | p[i];
-}	
+      (*i32) = ((*i32) << 8) | p[i];
+}
+
+void Decode(const uint8_t *p, uint32_t &u32)
+{
+   Decode4(p, u32);
+}
+
+void Decode(const uint8_t *p, int32_t &i32)
+{
+   Decode4(p, i32);
+}
+
+void Decode(const uint8_t *p, float &f)
+{
+   Decode4(p, f);
+}
+
+//-----------------------------------------------------------------------------
+// Decode 2-byte data
+template <class T>
+void Decode2(const uint8_t *p, T &out)
+{
+   out = p[0] | (p[1] << 8);
+}
+
+void Decode(const uint8_t *p, int16_t &i16)
+{
+   Decode2(p, i16);
+}
+
+void Decode(const uint8_t *p, uint16_t &u16)
+{
+   Decode2(p, u16);
+}

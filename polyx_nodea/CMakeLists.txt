@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.8.3)
 project(polyx_nodea)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
-# add_compile_options(-std=c++11)
+add_compile_options(-std=c++17)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -50,6 +50,7 @@ find_package(catkin REQUIRED COMPONENTS
 ## Generate messages in the 'msg' folder
  add_message_files(
    FILES
+   BinaryData.msg
    Icd.msg
    Geoid.msg
    EulerAttitude.msg
@@ -64,6 +65,7 @@ find_package(catkin REQUIRED COMPONENTS
    LeapSeconds.msg
    nmeaGGA.msg
    dmi.msg
+   GnssHmr.msg
  )
 
 ## Generate services in the 'srv' folder
@@ -152,6 +154,7 @@ add_executable(${PROJECT_NAME}_listener src/polyx_nodea_listener.cpp)
 add_executable(${PROJECT_NAME}_speed src/polyx_nodea_speed.cpp)
 add_executable(${PROJECT_NAME}_heading src/polyx_nodea_heading.cpp)
 add_executable(${PROJECT_NAME}_geopose src/polyx_nodea_geopose.cpp)
+add_executable(${PROJECT_NAME}_rtcm_forwarder src/polyx_nodea_rtcm_forwarder.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -166,6 +169,7 @@ add_dependencies(${PROJECT_NAME}_listener ${${PROJECT_NAME}_EXPORTED_TARGETS} ${
 add_dependencies(${PROJECT_NAME}_speed ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(${PROJECT_NAME}_heading ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(${PROJECT_NAME}_geopose ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(${PROJECT_NAME}_rtcm_forwarder ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(${PROJECT_NAME}_talker
@@ -181,6 +185,9 @@ target_link_libraries(${PROJECT_NAME}_heading
    ${catkin_LIBRARIES}
   )
 target_link_libraries(${PROJECT_NAME}_geopose
+   ${catkin_LIBRARIES}
+  )
+  target_link_libraries(${PROJECT_NAME}_rtcm_forwarder
    ${catkin_LIBRARIES}
   )
 #############
