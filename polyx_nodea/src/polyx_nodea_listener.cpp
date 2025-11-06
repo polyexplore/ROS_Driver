@@ -33,6 +33,7 @@
 #include "polyx_nodea/RawIMU.h"
 #include "polyx_nodea/GpsIon.h"
 #include "polyx_nodea/BdsIon.h"
+#include "polyx_nodea/BinaryData.h"
 #include "polyx_nodea/SolutionStatus.h"
 #include "polyx_nodea/Icd.h"
 #include "polyx_nodea/EulerAttitude.h"
@@ -109,6 +110,11 @@ void dumpBdsIonMessage(const polyx_nodea::BdsIon::ConstPtr& bionmsg)
 {
   ROS_INFO("a=[%f,%f,%f,%f]", bionmsg->a[0], bionmsg->a[1], bionmsg->a[2], bionmsg->a[3]);
   ROS_INFO("b=[%f,%f,%f,%f]\n", bionmsg->b[0], bionmsg->b[1], bionmsg->b[2], bionmsg->b[3]);
+}
+
+void dumpGnssObsMessage(const polyx_nodea::BinaryData::ConstPtr& obsmsg)
+{
+  ROS_INFO("received %f bytes gnss obs data", obsmsg->data.size());
 }
 
 void dumpSolutionStatus(const polyx_nodea::SolutionStatus::ConstPtr& smsg)
@@ -206,6 +212,14 @@ void polyxBdsIonCallback(const polyx_nodea::BdsIon::ConstPtr& bionmsg)
   ROS_INFO(">>> Received a BDS ION Data message:");
 
   dumpBdsIonMessage(bionmsg);
+
+}
+
+void polyxGnssObsCallback(const polyx_nodea::BinaryData::ConstPtr& obsmsg)
+{
+  ROS_INFO(">>> Received a GNSS OBS message:");
+
+  dumpGnssObsMessage(obsmsg);
 
 }
 
@@ -345,6 +359,7 @@ int main(int argc, char **argv)
 
   ros::Subscriber GpsIon_sub = n.subscribe("polyx_gpsion", 50, polyxGpsIonCallback);
   ros::Subscriber BdsIon_sub = n.subscribe("polyx_bdsion", 50, polyxBdsIonCallback);
+  ros::Subscriber GnssObs_sub = n.subscribe("polyx_gnssobs", 50, polyxGnssObsCallback);
 
   ros::Subscriber SolutionStatus_sub = n.subscribe("polyx_solutionStatus", 50, polyxSolutionStatusCallback);
   

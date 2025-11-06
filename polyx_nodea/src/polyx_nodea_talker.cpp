@@ -45,6 +45,7 @@
 #include "polyx_nodea/RawIMU.h"
 #include "polyx_nodea/GpsIon.h"
 #include "polyx_nodea/BdsIon.h"
+#include "polyx_nodea/BinaryData.h"
 #include "polyx_nodea/SolutionStatus.h"
 #include "polyx_nodea/Icd.h"
 #include "polyx_nodea/EulerAttitude.h"
@@ -434,6 +435,11 @@ void parse_BdsIon_message(uint8_t *buf, polyx_nodea::BdsIon &bionmsg)
    int i;
    for (i = 0; i < 4; i++) bionmsg.a[i] = bim->a[i];
    for (i = 0; i < 4; i++) bionmsg.b[i] = bim->b[i];
+}
+
+void parse_GnssObs_message(uint8_t *buf, size_t len, polyx_nodea::BinaryData &obsmsg)
+{
+    obsmsg.data = std::vector<uint8_t>(buf, buf + len);
 }
 
 void parse_SolutionStatus_message(uint8_t *buf, polyx_nodea::SolutionStatus &smsg)
@@ -826,6 +832,7 @@ int main(int argc, char **argv)
    ros::Publisher RawIMU_pub = n.advertise<polyx_nodea::RawIMU>("polyx_rawIMU", 2);
    ros::Publisher GpsIon_pub = n.advertise<polyx_nodea::GpsIon>("polyx_gpsion", 2);
    ros::Publisher BdsIon_pub = n.advertise<polyx_nodea::BdsIon>("polyx_bdsion", 2);
+   ros::Publisher GnssObs_pub = n.advertise<polyx_nodea::BinaryData>("polyx_gnssObs", 2);
    ros::Publisher SolutionStatus_pub = n.advertise<polyx_nodea::SolutionStatus>("polyx_solutionStatus", 2);
    ros::Publisher icd_pub = n.advertise<polyx_nodea::Icd>("polyx_ICD", 2);
    ros::Publisher geopose_pub = n.advertise<geographic_msgs::GeoPoseStamped>("current_geopose", 2);
@@ -888,6 +895,7 @@ int main(int argc, char **argv)
    polyx_nodea::RawIMU imsg = {};
    polyx_nodea::GpsIon gionmsg = {};
    polyx_nodea::BdsIon bionmsg = {};
+   polyx_nodea::BinaryData obsmsg = {};
    polyx_nodea::SolutionStatus smsg = {};
    polyx_nodea::Icd msg = {};
    polyx_nodea::EulerAttitude qtemsg = {};
@@ -1120,6 +1128,10 @@ int main(int argc, char **argv)
                      case 67:
                         parse_BdsIon_message(buf, bionmsg);
                         BdsIon_pub.publish(bionmsg);
+                        break;
+                     case 30:
+                        parse_GnssObs_message(buf, msglen, obsmsg);
+                        GnssObs_pub.publish(obsmsg);
                         break;
                      case 9:
                         parse_SolutionStatus_message(buf, smsg);
