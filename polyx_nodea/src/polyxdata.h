@@ -85,6 +85,23 @@ struct   __attribute__((packed)) gpsIonMessage
    unsigned char chksumB;
 };
 
+struct   __attribute__((packed)) bdsIonMessage
+{
+   unsigned char sync1;
+   unsigned char sync2;
+   unsigned char msg_type;
+   unsigned char sub_id;
+   unsigned short int payload_len;
+
+   // --- payload data
+   double   a[4];
+   double   b[4];
+
+// ----- end payload    
+   unsigned char chksumA;
+   unsigned char chksumB;
+};
+
  struct   __attribute__((packed)) solutionStatusMessage
 {
    unsigned char sync1;

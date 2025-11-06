@@ -59,6 +59,7 @@ find_package(catkin REQUIRED COMPONENTS
    StaticHeadingEvent.msg
    RawIMU.msg
    GpsIon.msg
+   BdsIon.msg
    CorrectedIMU.msg
    SolutionStatus.msg
    StaticGeoPoseEvent.msg
