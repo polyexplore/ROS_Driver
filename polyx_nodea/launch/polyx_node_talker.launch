@@ -2,7 +2,7 @@
 <launch>
   <env name="ROSCONSOLE_FORMAT" value="[${severity}] [${time}] [${node}]: ${message}"/>
 
-  <arg name="polynav_ip" default="192.168.130.97"/>
+  <arg name="polynav_ip" default="192.168.230.34"/>
   <arg name="polynav_port" default="8888"/>
 
   <param name="polyx_speedreport" value="polyx_WheelSpeed"/>

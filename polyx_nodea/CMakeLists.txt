@@ -58,6 +58,7 @@ find_package(catkin REQUIRED COMPONENTS
    Kalman.msg
    StaticHeadingEvent.msg
    RawIMU.msg
+   GpsIon.msg
    CorrectedIMU.msg
    SolutionStatus.msg
    StaticGeoPoseEvent.msg

@@ -43,6 +43,7 @@
  // %Tag(MSG_HEADER)%
 #include "polyx_nodea/Kalman.h"
 #include "polyx_nodea/RawIMU.h"
+#include "polyx_nodea/GpsIon.h"
 #include "polyx_nodea/SolutionStatus.h"
 #include "polyx_nodea/Icd.h"
 #include "polyx_nodea/EulerAttitude.h"
@@ -416,6 +417,14 @@ void parse_RawIMU_message(uint8_t *buf, polyx_nodea::RawIMU &imsg)
    for (i = 0; i < 3; i++) imsg.Acceleration[i] = im->acc[i];
    for (i = 0; i < 3; i++) imsg.RotationRate[i] = im->rotRate[i];
 
+}
+
+void parse_GpsIon_message(uint8_t *buf, polyx_nodea::GpsIon &gionmsg)
+{
+   struct gpsIonMessage *gim = (struct gpsIonMessage*)buf;
+   int i;
+   for (i = 0; i < 4; i++) gionmsg.a[i] = gim->a[i];
+   for (i = 0; i < 4; i++) gionmsg.b[i] = gim->b[i];
 }
 
 void parse_SolutionStatus_message(uint8_t *buf, polyx_nodea::SolutionStatus &smsg)
@@ -806,6 +815,7 @@ int main(int argc, char **argv)
    ros::Publisher chatter_pub = n.advertise<std_msgs::String>("chatter", 1000);
    ros::Publisher kalman_pub = n.advertise<polyx_nodea::Kalman>("polyx_Kalman", 2);
    ros::Publisher RawIMU_pub = n.advertise<polyx_nodea::RawIMU>("polyx_rawIMU", 2);
+   ros::Publisher GpsIon_pub = n.advertise<polyx_nodea::GpsIon>("polyx_gpsion", 2);
    ros::Publisher SolutionStatus_pub = n.advertise<polyx_nodea::SolutionStatus>("polyx_solutionStatus", 2);
    ros::Publisher icd_pub = n.advertise<polyx_nodea::Icd>("polyx_ICD", 2);
    ros::Publisher geopose_pub = n.advertise<geographic_msgs::GeoPoseStamped>("current_geopose", 2);
@@ -866,6 +876,7 @@ int main(int argc, char **argv)
 
    polyx_nodea::Kalman kalmsg = {};
    polyx_nodea::RawIMU imsg = {};
+   polyx_nodea::GpsIon gionmsg = {};
    polyx_nodea::SolutionStatus smsg = {};
    polyx_nodea::Icd msg = {};
    polyx_nodea::EulerAttitude qtemsg = {};
@@ -1090,6 +1101,10 @@ int main(int argc, char **argv)
                      case 8:
                         parse_RawIMU_message(buf, imsg);
                         RawIMU_pub.publish(imsg);
+                        break;
+                     case 66:
+                        parse_GpsIon_message(buf, gionmsg);
+                        GpsIon_pub.publish(gionmsg);
                         break;
                      case 9:
                         parse_SolutionStatus_message(buf, smsg);

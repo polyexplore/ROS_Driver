@@ -31,6 +31,7 @@
 
 #include "polyx_nodea/Kalman.h"
 #include "polyx_nodea/RawIMU.h"
+#include "polyx_nodea/GpsIon.h"
 #include "polyx_nodea/SolutionStatus.h"
 #include "polyx_nodea/Icd.h"
 #include "polyx_nodea/EulerAttitude.h"
@@ -95,6 +96,12 @@ void dumpRawIMUMessage(const polyx_nodea::RawIMU::ConstPtr& imsg)
   ROS_INFO("Acceleration=[%f,%f,%f]", imsg->Acceleration[0], imsg->Acceleration[1], imsg->Acceleration[2]);
   ROS_INFO("RotationRate=[%f,%f,%f]\n", imsg->RotationRate[0], imsg->RotationRate[1], imsg->RotationRate[2]);
 
+}
+
+void dumpGpsIonMessage(const polyx_nodea::GpsIon::ConstPtr& gionmsg)
+{
+  ROS_INFO("a=[%f,%f,%f,%f]", gionmsg->a[0], gionmsg->a[1], gionmsg->a[2], gionmsg->a[3]);
+  ROS_INFO("b=[%f,%f,%f,%f]\n", gionmsg->b[0], gionmsg->b[1], gionmsg->b[2], gionmsg->b[3]);
 }
 
 void dumpSolutionStatus(const polyx_nodea::SolutionStatus::ConstPtr& smsg)
@@ -176,6 +183,14 @@ void polyxRawIMUCallback(const polyx_nodea::RawIMU::ConstPtr& imsg)
   ROS_INFO(">>> Received a Scaled Raw IMU Data message:");
 
   dumpRawIMUMessage(imsg);
+
+}
+
+void polyxGpsIonCallback(const polyx_nodea::GpsIon::ConstPtr& gionmsg)
+{
+  ROS_INFO(">>> Received a GPS ION Data message:");
+
+  dumpGpsIonMessage(gionmsg);
 
 }
 
@@ -312,6 +327,8 @@ int main(int argc, char **argv)
   ros::Subscriber Kalman_sub = n.subscribe("polyx_Kalman", 50, polyxKalmanCallback);
 
   ros::Subscriber RawIMU_sub = n.subscribe("polyx_rawIMU", 50, polyxRawIMUCallback);
+
+  ros::Subscriber GpsIon_sub = n.subscribe("polyx_gpsion", 50, polyxGpsIonCallback);
 
   ros::Subscriber SolutionStatus_sub = n.subscribe("polyx_solutionStatus", 50, polyxSolutionStatusCallback);
   
