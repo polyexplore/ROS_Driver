@@ -77,6 +77,8 @@ struct   __attribute__((packed)) gpsIonMessage
    unsigned short int payload_len;
 
    // --- payload data
+   unsigned short int gps_week;
+   double gps_time;
    double   a[4];
    double   b[4];
 
@@ -94,6 +96,8 @@ struct   __attribute__((packed)) bdsIonMessage
    unsigned short int payload_len;
 
    // --- payload data
+   unsigned short int gps_week;
+   double gps_time;
    double   a[4];
    double   b[4];
 

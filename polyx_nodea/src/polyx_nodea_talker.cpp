@@ -424,6 +424,8 @@ void parse_RawIMU_message(uint8_t *buf, polyx_nodea::RawIMU &imsg)
 void parse_GpsIon_message(uint8_t *buf, polyx_nodea::GpsIon &gionmsg)
 {
    struct gpsIonMessage *gim = (struct gpsIonMessage*)buf;
+   gionmsg.gps_week = gim->gps_week;
+   gionmsg.gps_time = gim->gps_time;
    int i;
    for (i = 0; i < 4; i++) gionmsg.a[i] = gim->a[i];
    for (i = 0; i < 4; i++) gionmsg.b[i] = gim->b[i];
@@ -432,6 +434,8 @@ void parse_GpsIon_message(uint8_t *buf, polyx_nodea::GpsIon &gionmsg)
 void parse_BdsIon_message(uint8_t *buf, polyx_nodea::BdsIon &bionmsg)
 {
    struct bdsIonMessage *bim = (struct bdsIonMessage*)buf;
+   bionmsg.gps_week = bim->gps_week;
+   bionmsg.gps_time = bim->gps_time;
    int i;
    for (i = 0; i < 4; i++) bionmsg.a[i] = bim->a[i];
    for (i = 0; i < 4; i++) bionmsg.b[i] = bim->b[i];
@@ -439,32 +443,32 @@ void parse_BdsIon_message(uint8_t *buf, polyx_nodea::BdsIon &bionmsg)
 
 void parse_GnssObs_message(uint8_t *buf, size_t len, polyx_nodea::BinaryData &obsmsg)
 {
-    obsmsg.data = std::vector<uint8_t>(buf, buf + len);
+    obsmsg.data = std::vector<uint8_t>(buf + 6, buf + len - 2);
 }
 
 void parse_GpsEph_message(uint8_t *buf, size_t len, polyx_nodea::BinaryData &gpsephmsg)
 {
-    gpsephmsg.data = std::vector<uint8_t>(buf, buf + len);
+    gpsephmsg.data = std::vector<uint8_t>(buf + 6, buf + len - 2);
 }
 
 void parse_GloEph_message(uint8_t *buf, size_t len, polyx_nodea::BinaryData &gloephmsg)
 {
-    gloephmsg.data = std::vector<uint8_t>(buf, buf + len);
+    gloephmsg.data = std::vector<uint8_t>(buf + 6, buf + len - 2);
 }
 
 void parse_BdsEph_message(uint8_t *buf, size_t len, polyx_nodea::BinaryData &bdsephmsg)
 {
-    bdsephmsg.data = std::vector<uint8_t>(buf, buf + len);
+    bdsephmsg.data = std::vector<uint8_t>(buf + 6, buf + len - 2);
 }
 
 void parse_GalEph_message(uint8_t *buf, size_t len, polyx_nodea::BinaryData &galephmsg)
 {
-    galephmsg.data = std::vector<uint8_t>(buf, buf + len);
+    galephmsg.data = std::vector<uint8_t>(buf + 6, buf + len - 2);
 }
 
 void parse_QzsEph_message(uint8_t *buf, size_t len, polyx_nodea::BinaryData &qzsephmsg)
 {
-    qzsephmsg.data = std::vector<uint8_t>(buf, buf + len);
+    qzsephmsg.data = std::vector<uint8_t>(buf + 6, buf + len - 2);
 }
 
 void parse_SolutionStatus_message(uint8_t *buf, polyx_nodea::SolutionStatus &smsg)
@@ -1156,6 +1160,7 @@ int main(int argc, char **argv)
                         parse_RawIMU_message(buf, imsg);
                         RawIMU_pub.publish(imsg);
                         break;
+
                      case 66:
                         parse_GpsIon_message(buf, gionmsg);
                         GpsIon_pub.publish(gionmsg);
@@ -1164,32 +1169,31 @@ int main(int argc, char **argv)
                         parse_BdsIon_message(buf, bionmsg);
                         BdsIon_pub.publish(bionmsg);
                         break;
-                     case 30:
+                     case 100:
                         parse_GnssObs_message(buf, msglen, obsmsg);
                         GnssObs_pub.publish(obsmsg);
                         break;
-                     case 31: // gps_eph
+                     case 101: // gps_eph
                         parse_GpsEph_message(buf, msglen, gpsephmsg);
                         GpsEph_pub.publish(gpsephmsg);
                         break;
-                     case 32: // glo_eph
+                     case 102: // glo_eph
                         parse_GloEph_message(buf, msglen, gloephmsg);
                         GloEph_pub.publish(gloephmsg);
                         break;
-                     case 48: // bds_eph
+                     case 103: // bds_eph
                         parse_BdsEph_message(buf, msglen, bdsephmsg);
                         BdsEph_pub.publish(bdsephmsg);
                         break;
-                     case 50: // gal_eph
+                     case 105: // gal_eph
                         parse_GalEph_message(buf, msglen, galephmsg);
                         GalEph_pub.publish(galephmsg);
                         break;
-                     case 51: // qzs_eph
+                     case 106: // qzs_eph
                         parse_QzsEph_message(buf, msglen, qzsephmsg);
                         QzsEph_pub.publish(qzsephmsg);
                         break;
-                     
-                     
+
                      case 9:
                         parse_SolutionStatus_message(buf, smsg);
                         SolutionStatus_pub.publish(smsg);

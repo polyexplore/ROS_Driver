@@ -102,12 +102,18 @@ void dumpRawIMUMessage(const polyx_nodea::RawIMU::ConstPtr& imsg)
 
 void dumpGpsIonMessage(const polyx_nodea::GpsIon::ConstPtr& gionmsg)
 {
+  if (flog) fprintf(flog, "%f\n", gionmsg->gps_time);
+  ROS_INFO("GPS Week=%f", gionmsg->gps_week);
+  ROS_INFO("GPS Time=%f", gionmsg->gps_time);
   ROS_INFO("a=[%f,%f,%f,%f]", gionmsg->a[0], gionmsg->a[1], gionmsg->a[2], gionmsg->a[3]);
   ROS_INFO("b=[%f,%f,%f,%f]\n", gionmsg->b[0], gionmsg->b[1], gionmsg->b[2], gionmsg->b[3]);
 }
 
 void dumpBdsIonMessage(const polyx_nodea::BdsIon::ConstPtr& bionmsg)
 {
+  if (flog) fprintf(flog, "%f\n", bionmsg->gps_time);
+  ROS_INFO("GPS Week=%f", bionmsg->gps_week);
+  ROS_INFO("GPS Time=%f", bionmsg->gps_time);
   ROS_INFO("a=[%f,%f,%f,%f]", bionmsg->a[0], bionmsg->a[1], bionmsg->a[2], bionmsg->a[3]);
   ROS_INFO("b=[%f,%f,%f,%f]\n", bionmsg->b[0], bionmsg->b[1], bionmsg->b[2], bionmsg->b[3]);
 }
