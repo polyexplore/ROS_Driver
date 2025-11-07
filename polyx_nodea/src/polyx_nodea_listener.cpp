@@ -117,6 +117,31 @@ void dumpGnssObsMessage(const polyx_nodea::BinaryData::ConstPtr& obsmsg)
   ROS_INFO("received %f bytes gnss obs data", obsmsg->data.size());
 }
 
+void dumpGpsEphMessage(const polyx_nodea::BinaryData::ConstPtr& gpsephmsg)
+{
+  ROS_INFO("received %f bytes gps eph data", gpsephmsg->data.size());
+}
+
+void dumpGloEphMessage(const polyx_nodea::BinaryData::ConstPtr& gloephmsg)
+{
+  ROS_INFO("received %f bytes glo eph data", gloephmsg->data.size());
+}
+
+void dumpBdsEphMessage(const polyx_nodea::BinaryData::ConstPtr& bdsephmsg)
+{
+  ROS_INFO("received %f bytes bds eph data", bdsephmsg->data.size());
+}
+
+void dumpGalEphMessage(const polyx_nodea::BinaryData::ConstPtr& galephmsg)
+{
+  ROS_INFO("received %f bytes gal eph data", galephmsg->data.size());
+}
+
+void dumpQzsEphMessage(const polyx_nodea::BinaryData::ConstPtr& qzsephmsg)
+{
+  ROS_INFO("received %f bytes qzs eph data", qzsephmsg->data.size());
+}
+
 void dumpSolutionStatus(const polyx_nodea::SolutionStatus::ConstPtr& smsg)
 {
 
@@ -202,25 +227,49 @@ void polyxRawIMUCallback(const polyx_nodea::RawIMU::ConstPtr& imsg)
 void polyxGpsIonCallback(const polyx_nodea::GpsIon::ConstPtr& gionmsg)
 {
   ROS_INFO(">>> Received a GPS ION Data message:");
-
   dumpGpsIonMessage(gionmsg);
-
 }
 
 void polyxBdsIonCallback(const polyx_nodea::BdsIon::ConstPtr& bionmsg)
 {
   ROS_INFO(">>> Received a BDS ION Data message:");
-
   dumpBdsIonMessage(bionmsg);
-
 }
 
 void polyxGnssObsCallback(const polyx_nodea::BinaryData::ConstPtr& obsmsg)
 {
   ROS_INFO(">>> Received a GNSS OBS message:");
-
   dumpGnssObsMessage(obsmsg);
+}
 
+void polyxGpsEphCallback(const polyx_nodea::BinaryData::ConstPtr& gpsephmsg)
+{
+  ROS_INFO(">>> Received a GPS EPH message:");
+  dumpGpsEphMessage(gpsephmsg);
+}
+
+void polyxGloEphCallback(const polyx_nodea::BinaryData::ConstPtr& gloephmsg)
+{
+  ROS_INFO(">>> Received a GLO EPH message:");
+  dumpGloEphMessage(gloephmsg);
+}
+
+void polyxBdsEphCallback(const polyx_nodea::BinaryData::ConstPtr& bdsephmsg)
+{
+  ROS_INFO(">>> Received a BDS EPH message:");
+  dumpBdsEphMessage(bdsephmsg);
+}
+
+void polyxGalEphCallback(const polyx_nodea::BinaryData::ConstPtr& galephmsg)
+{
+  ROS_INFO(">>> Received a GAL EPH message:");
+  dumpGalEphMessage(galephmsg);
+}
+
+void polyxQzsEphCallback(const polyx_nodea::BinaryData::ConstPtr& qzsephmsg)
+{
+  ROS_INFO(">>> Received a QZS EPH message:");
+  dumpQzsEphMessage(qzsephmsg);
 }
 
 void polyxSolutionStatusCallback(const polyx_nodea::SolutionStatus::ConstPtr& smsg)
@@ -360,6 +409,11 @@ int main(int argc, char **argv)
   ros::Subscriber GpsIon_sub = n.subscribe("polyx_gpsion", 50, polyxGpsIonCallback);
   ros::Subscriber BdsIon_sub = n.subscribe("polyx_bdsion", 50, polyxBdsIonCallback);
   ros::Subscriber GnssObs_sub = n.subscribe("polyx_gnssobs", 50, polyxGnssObsCallback);
+  ros::Subscriber GpsEph_sub = n.subscribe("polyx_gpseph", 50, polyxGpsEphCallback);
+  ros::Subscriber GloEph_sub = n.subscribe("polyx_gloeph", 50, polyxGloEphCallback);
+  ros::Subscriber BdsEph_sub = n.subscribe("polyx_bdseph", 50, polyxBdsEphCallback);
+  ros::Subscriber GalEph_sub = n.subscribe("polyx_galeph", 50, polyxGalEphCallback);
+  ros::Subscriber QzsEph_sub = n.subscribe("polyx_qzseph", 50, polyxQzsEphCallback);
 
   ros::Subscriber SolutionStatus_sub = n.subscribe("polyx_solutionStatus", 50, polyxSolutionStatusCallback);
   

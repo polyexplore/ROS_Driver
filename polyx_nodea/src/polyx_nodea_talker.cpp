@@ -442,6 +442,31 @@ void parse_GnssObs_message(uint8_t *buf, size_t len, polyx_nodea::BinaryData &ob
     obsmsg.data = std::vector<uint8_t>(buf, buf + len);
 }
 
+void parse_GpsEph_message(uint8_t *buf, size_t len, polyx_nodea::BinaryData &gpsephmsg)
+{
+    gpsephmsg.data = std::vector<uint8_t>(buf, buf + len);
+}
+
+void parse_GloEph_message(uint8_t *buf, size_t len, polyx_nodea::BinaryData &gloephmsg)
+{
+    gloephmsg.data = std::vector<uint8_t>(buf, buf + len);
+}
+
+void parse_BdsEph_message(uint8_t *buf, size_t len, polyx_nodea::BinaryData &bdsephmsg)
+{
+    bdsephmsg.data = std::vector<uint8_t>(buf, buf + len);
+}
+
+void parse_GalEph_message(uint8_t *buf, size_t len, polyx_nodea::BinaryData &galephmsg)
+{
+    galephmsg.data = std::vector<uint8_t>(buf, buf + len);
+}
+
+void parse_QzsEph_message(uint8_t *buf, size_t len, polyx_nodea::BinaryData &qzsephmsg)
+{
+    qzsephmsg.data = std::vector<uint8_t>(buf, buf + len);
+}
+
 void parse_SolutionStatus_message(uint8_t *buf, polyx_nodea::SolutionStatus &smsg)
 {
    struct solutionStatusMessage *im = (struct solutionStatusMessage*)buf;
@@ -833,6 +858,11 @@ int main(int argc, char **argv)
    ros::Publisher GpsIon_pub = n.advertise<polyx_nodea::GpsIon>("polyx_gpsion", 2);
    ros::Publisher BdsIon_pub = n.advertise<polyx_nodea::BdsIon>("polyx_bdsion", 2);
    ros::Publisher GnssObs_pub = n.advertise<polyx_nodea::BinaryData>("polyx_gnssObs", 2);
+   ros::Publisher GpsEph_pub = n.advertise<polyx_nodea::BinaryData>("polyx_gpsEph", 2);
+   ros::Publisher GloEph_pub = n.advertise<polyx_nodea::BinaryData>("polyx_gloEph", 2);
+   ros::Publisher BdsEph_pub = n.advertise<polyx_nodea::BinaryData>("polyx_bdsEph", 2);
+   ros::Publisher GalEph_pub = n.advertise<polyx_nodea::BinaryData>("polyx_galEph", 2);
+   ros::Publisher QzsEph_pub = n.advertise<polyx_nodea::BinaryData>("polyx_qzsEph", 2);
    ros::Publisher SolutionStatus_pub = n.advertise<polyx_nodea::SolutionStatus>("polyx_solutionStatus", 2);
    ros::Publisher icd_pub = n.advertise<polyx_nodea::Icd>("polyx_ICD", 2);
    ros::Publisher geopose_pub = n.advertise<geographic_msgs::GeoPoseStamped>("current_geopose", 2);
@@ -896,6 +926,11 @@ int main(int argc, char **argv)
    polyx_nodea::GpsIon gionmsg = {};
    polyx_nodea::BdsIon bionmsg = {};
    polyx_nodea::BinaryData obsmsg = {};
+   polyx_nodea::BinaryData gpsephmsg = {};
+   polyx_nodea::BinaryData gloephmsg = {};
+   polyx_nodea::BinaryData bdsephmsg = {};
+   polyx_nodea::BinaryData galephmsg = {};
+   polyx_nodea::BinaryData qzsephmsg = {};
    polyx_nodea::SolutionStatus smsg = {};
    polyx_nodea::Icd msg = {};
    polyx_nodea::EulerAttitude qtemsg = {};
@@ -1133,6 +1168,28 @@ int main(int argc, char **argv)
                         parse_GnssObs_message(buf, msglen, obsmsg);
                         GnssObs_pub.publish(obsmsg);
                         break;
+                     case 31: // gps_eph
+                        parse_GpsEph_message(buf, msglen, gpsephmsg);
+                        GpsEph_pub.publish(gpsephmsg);
+                        break;
+                     case 32: // glo_eph
+                        parse_GloEph_message(buf, msglen, gloephmsg);
+                        GloEph_pub.publish(gloephmsg);
+                        break;
+                     case 48: // bds_eph
+                        parse_BdsEph_message(buf, msglen, bdsephmsg);
+                        BdsEph_pub.publish(bdsephmsg);
+                        break;
+                     case 50: // gal_eph
+                        parse_GalEph_message(buf, msglen, galephmsg);
+                        GalEph_pub.publish(galephmsg);
+                        break;
+                     case 51: // qzs_eph
+                        parse_QzsEph_message(buf, msglen, qzsephmsg);
+                        QzsEph_pub.publish(qzsephmsg);
+                        break;
+                     
+                     
                      case 9:
                         parse_SolutionStatus_message(buf, smsg);
                         SolutionStatus_pub.publish(smsg);
