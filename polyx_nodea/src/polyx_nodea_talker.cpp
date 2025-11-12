@@ -443,32 +443,32 @@ void parse_BdsIon_message(uint8_t *buf, polyx_nodea::BdsIon &bionmsg)
 
 void parse_GnssObs_message(uint8_t *buf, size_t len, polyx_nodea::BinaryData &obsmsg)
 {
-    obsmsg.data = std::vector<uint8_t>(buf + 6, buf + len - 2);
+    obsmsg.data = std::vector<uint8_t>(buf + 6, buf + 6 + len);
 }
 
 void parse_GpsEph_message(uint8_t *buf, size_t len, polyx_nodea::BinaryData &gpsephmsg)
 {
-    gpsephmsg.data = std::vector<uint8_t>(buf + 6, buf + len - 2);
+    gpsephmsg.data = std::vector<uint8_t>(buf + 6, buf + 6 + len);
 }
 
 void parse_GloEph_message(uint8_t *buf, size_t len, polyx_nodea::BinaryData &gloephmsg)
 {
-    gloephmsg.data = std::vector<uint8_t>(buf + 6, buf + len - 2);
+    gloephmsg.data = std::vector<uint8_t>(buf + 6, buf + 6 + len);
 }
 
 void parse_BdsEph_message(uint8_t *buf, size_t len, polyx_nodea::BinaryData &bdsephmsg)
 {
-    bdsephmsg.data = std::vector<uint8_t>(buf + 6, buf + len - 2);
+    bdsephmsg.data = std::vector<uint8_t>(buf + 6, buf + 6 + len);
 }
 
 void parse_GalEph_message(uint8_t *buf, size_t len, polyx_nodea::BinaryData &galephmsg)
 {
-    galephmsg.data = std::vector<uint8_t>(buf + 6, buf + len - 2);
+    galephmsg.data = std::vector<uint8_t>(buf + 6, buf + 6 + len);
 }
 
 void parse_QzsEph_message(uint8_t *buf, size_t len, polyx_nodea::BinaryData &qzsephmsg)
 {
-    qzsephmsg.data = std::vector<uint8_t>(buf + 6, buf + len - 2);
+    qzsephmsg.data = std::vector<uint8_t>(buf + 6, buf + 6 + len);
 }
 
 void parse_SolutionStatus_message(uint8_t *buf, polyx_nodea::SolutionStatus &smsg)
